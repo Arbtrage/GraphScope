@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: graphscope
+          POSTGRES_PASSWORD: graphscope
+          POSTGRES_DB: graphscope_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U graphscope -d graphscope_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      GRAPHSCOPE_DB_PROFILE: test
+      GRAPHSCOPE_DB_HOST: 127.0.0.1
+      GRAPHSCOPE_DB_PORT: 5432
+      GRAPHSCOPE_DB_USER: graphscope
+      GRAPHSCOPE_DB_PASSWORD: graphscope
+      GRAPHSCOPE_DB_NAME: graphscope_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm --filter @graphscope/config build && pnpm --filter @graphscope/shared-types build && pnpm --filter @graphscope/db build && pnpm --filter @graphscope/api build && pnpm --filter @graphscope/ui build
+
+      - name: Migration smoke (run twice)
+        run: pnpm db:migrate && pnpm db:migrate
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test

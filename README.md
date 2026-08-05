@@ -43,7 +43,19 @@ GraphScope is a **local-first desktop workspace** for GraphQL teams and solo dev
 3. Add a repo or local folder → browse discovered operations  
 4. Create an environment → run your first query  
 
-Or build from source — see [CONTRIBUTING.md](CONTRIBUTING.md) (added at implementation).
+### Development (Phase 1)
+
+```bash
+pnpm install
+cp .env.example .env
+pnpm desktop:dev    # Electron + embedded PG + API + web
+# or
+docker compose up -d && pnpm stack:dev   # Docker Postgres + API + web
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full setup.
+
+Or build from source — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Specification
 

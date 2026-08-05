@@ -1,0 +1,29 @@
+{
+  "name": "graphscope",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "api:dev": "pnpm --filter @graphscope/api dev",
+    "web:dev": "pnpm --filter @graphscope/web dev",
+    "desktop:dev": "concurrently -k \"pnpm web:dev\" \"pnpm --filter @graphscope/desktop dev\"",
+    "stack:dev": "concurrently -k \"pnpm api:dev\" \"pnpm web:dev\""
+  },
+  "devDependencies": {
+    "@graphscope/db": "workspace:*",
+    "@types/node": "^22.10.2",
+    "concurrently": "^9.1.0",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "wait-on": "^8.0.1"
+  }
+}
