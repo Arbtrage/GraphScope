@@ -6,7 +6,7 @@
 | Document | PRD / Phase 1 |
 | Status | Approved for implementation |
 | Audience | Engineering, Product, Design, Security |
-| Version | 1.3.0 |
+| Version | 1.4.0 |
 | Last updated | 2026-08-05 |
 | Primary client | macOS desktop — **local-only, zero GraphScope servers** |
 
@@ -86,20 +86,22 @@ GraphScope **v1 is a fully local macOS app**. The maintainer operates **zero app
 | Layer | v1 | Maintainer hosts? |
 |---|---|---|
 | **Client** | macOS `.dmg` (Electron + Next.js) | No — user downloads from GitHub |
-| **API** | Local NestJS monolith on loopback | No |
-| **Database** | **SQLite embedded** (default); optional **local MySQL** | No |
-| **Data access** | **Raw SQL migrations — no ORM** | — |
+| **API** | Local **Express** + Apollo Server on loopback | No |
+| **Database** | **PostgreSQL 16 embedded** (local) | No |
+| **Data access** | **Knex** migrations + query builder | — |
+| **GraphQL client** | **Apollo Client** (renderer) | No |
+| **Jobs** | **graphile-worker** (PostgreSQL queue) | No |
 | **Secrets** | macOS Keychain (GitHub, OpenAI, env tokens) | No |
 | **Landing page** | Static site → GitHub Releases link | **Yes — only deploy** |
 | **Distribution** | GitHub Releases + Product Hunt launch | Releases via CI |
 
 **Privacy pitch:** *Your GraphQL workspace never phones home to GraphScope.*
 
-**Why SQLite default over MySQL:** Product Hunt users get zero database install friction. Power users may point to local MySQL 8+ in Settings ([ADR-0007](../adr/0007-local-sql-no-orm.md)).
+**Why embedded PostgreSQL:** Real Postgres dialect and query patterns (Knex, EXPLAIN, FTS, graphile-worker) with zero user install — Electron bundles `embedded-postgres` ([ADR-0010](../adr/0010-postgresql-knex-express-stack.md)).
 
-**Why no ORM:** Explicit DDL, layered `stg_`/`core_`/`mart_` tables, and repository SQL match data engineering practice and full query control.
+**Why Knex:** Versioned migrations and parameterized queries match production SaaS backends; portfolio-demonstrable without cloud hosting.
 
-See [ADR-0005](../adr/0005-desktop-first-macos.md), [ADR-0006](../adr/0006-zero-hosted-infrastructure.md), [ADR-0009](../adr/0009-open-source-apache-2.md).
+See [ADR-0005](../adr/0005-desktop-first-macos.md), [ADR-0006](../adr/0006-zero-hosted-infrastructure.md), [ADR-0009](../adr/0009-open-source-apache-2.md), [ADR-0010](../adr/0010-postgresql-knex-express-stack.md).
 
 ---
 
@@ -348,7 +350,7 @@ Stories are prioritized **P0 (MVP)**, **P1 (post-MVP / stretch in v1.x)**, **P2 
 ### FR-ORG — Local workspace model
 
 - Hierarchy: **Workspace → Project** (no cloud org)
-- Multiple workspaces per Mac; data in single SQLite file with `workspace_id` FK
+- Multiple workspaces per Mac; data in local PostgreSQL with `workspace_id` FK on all scoped tables
 - Optional workspace export (zip: db slice + schema files)
 
 ### FR-AUTH — Authentication (local)
@@ -356,7 +358,7 @@ Stories are prioritized **P0 (MVP)**, **P1 (post-MVP / stretch in v1.x)**, **P2 
 - **No GraphScope login server**
 - GitHub **Device Flow** or **PAT** → Keychain
 - OpenAI API key → Keychain (for AI features)
-- Local session in SQLite
+- Local session in PostgreSQL (`core_session`); optional Redis cache when configured
 
 ### FR-VCS — Version control (local)
 
@@ -383,10 +385,12 @@ Stories are prioritized **P0 (MVP)**, **P1 (post-MVP / stretch in v1.x)**, **P2 
 
 ### FR-DATA — Local database (normative)
 
-- **Default:** SQLite embedded at Application Support path
-- **Optional:** User-configured local MySQL/MariaDB
-- **No ORM** — versioned SQL migrations only
+- **Default:** Embedded PostgreSQL at Application Support path
+- **Migrations & queries:** Knex 3 (PostgreSQL dialect)
+- **Optional:** External local Postgres URL in Settings (power users)
+- **Optional:** Local Redis for SDL/session cache
 - Layered tables: `stg_`, `core_`, `mart_`, `audit_` per [02-local-data-engineering.md](./02-local-data-engineering.md)
+- Analytics scripts in `scripts/analytics/` using Knex
 
 ### FR-VIZ — Visualization
 
@@ -424,8 +428,9 @@ Stories are prioritized **P0 (MVP)**, **P1 (post-MVP / stretch in v1.x)**, **P2 
 
 ### FR-SEARCH — Search
 
-- SQLite FTS5 over operations, types, fields
-- No OpenSearch / external search service
+- PostgreSQL full-text search (`tsvector` + GIN) over operations, types, fields
+- `search.reindex` graphile-worker task
+- No OpenSearch / external search service required
 
 ### FR-NOTIF — Notifications (local)
 
@@ -462,7 +467,7 @@ Stories are prioritized **P0 (MVP)**, **P1 (post-MVP / stretch in v1.x)**, **P2 
 
 - Installable `.dmg` from **GitHub Releases** (linked on landing page)
 - Electron + Next.js; spawns local API — **no Docker**
-- SQLite migrate on startup
+- Knex migrate on startup (embedded PostgreSQL)
 - Product Hunt launch-ready assets
 
 ---
@@ -522,11 +527,13 @@ GraphScope is an **open source, Postman-class GraphQL workspace** — portfolio-
 Demonstrates:
 
 - Open source desktop delivery (Electron + signed `.dmg`)
-- Local SQL data engineering (migrations, layered schema, no ORM)
+- **Express + GraphQL + PostgreSQL + Knex** backend (local embedded PG)
+- Apollo Client integration in renderer
+- graphile-worker background jobs; optional local Redis
 - GraphQL depth (discovery, registry, checks, Voyager, SSRF-safe execute)
 - Zero-ops maintainer model (landing page only)
 
-**Interview narrative:** “I built and open-sourced Postman for GraphQL — a local Mac app with repo discovery, schema registry, and a Postman-like daily workflow, with zero servers to operate.”
+**Interview narrative:** “I built and open-sourced Postman for GraphQL — a local Mac app with Express, GraphQL, PostgreSQL, and Knex: repo discovery, schema registry, background workers, and a Postman-like daily workflow, with zero servers to operate.”
 
 ### 11.2 Community goals (non-binding)
 
@@ -578,20 +585,23 @@ Demonstrates:
 | Viz | Voyager-class explorer |
 | Analytics | Complexity/depth, rule pack, dashboard |
 | AI | Explain/generate with user's OpenAI key |
-| Search | SQLite FTS5 |
+| Search | PostgreSQL full-text search |
 | Audit | Local append-only audit log |
 | CLI | `schema:publish`, `schema:check` → localhost |
-| Database | SQLite + SQL migrations, **no ORM** |
+| Database | **PostgreSQL + Knex** migrations |
+| Jobs | **graphile-worker** (parse, check, rollup, reindex) |
+| GraphQL client | **Apollo Client** |
 | Distribution | GitHub Releases `.dmg` + landing page |
 | Open source | Apache 2.0, CONTRIBUTING, public repo |
 | Postman-like UX | Collections, environments, history, runner |
 
 ### 13.2 Explicitly out of MVP
 
-- GraphScope-hosted servers
-- Docker / Compose requirement
-- Prisma or any ORM
-- PostgreSQL, Redis, BullMQ, OpenSearch
+- GraphScope-hosted servers / cloud SaaS deploy
+- AWS Lambda, SQS, API Gateway (cloud infra)
+- Maintainer-operated PostgreSQL or Redis
+- Prisma or full ORM abstraction
+- NestJS (Express is v1 API framework)
 - GitHub App / webhooks / cloud OAuth
 - Windows / Linux desktop
 - Email/Slack notification servers
@@ -601,6 +611,7 @@ Demonstrates:
 - BYOC / customer-VPC
 - VS Code extension
 - Cloud team sync
+- OpenSearch / Elasticsearch cluster
 
 ---
 
@@ -638,7 +649,7 @@ Demonstrates:
 | R7 | Federation complexity delays MVP | M | M | Non-federated registry first; Federation in M8 |
 | R8 | OpenSearch ops burden | M | M | Compose for local; managed OpenSearch in staging/prod; fallback degraded search |
 | R9 | Demo data unconvincing | M | M | Curated sample monorepo + fake subgraph + seed script |
-| R10 | SQLite corruption on crash | L | H | WAL mode; checkpoint on quit; backup export |
+| R10 | PostgreSQL corruption on crash | L | H | WAL mode; checkpoint on quit; backup export |
 | R11 | Mac notarization friction | M | M | Phase 5 checklist; CI macos job |
 | R12 | Product Hunt traffic spike | L | L | GitHub Releases CDN; no server to overload |
 | R13 | User expects cloud sync | M | M | Clear "local-only v1" messaging on landing |
@@ -649,14 +660,14 @@ Demonstrates:
 
 | Constraint | Implication |
 |---|---|
-| Fixed tech stack (NestJS, Next.js, Prisma, Redis, BullMQ, Apollo, OTel, etc.) | Design within stack; no re-litigation without ADR |
+| Fixed tech stack (Express, Next.js, Knex, PostgreSQL, graphile-worker, Apollo, etc.) | Design within stack; no re-litigation without ADR |
 | Greenfield empty repository | Spec docs land before application code |
 | Portfolio / solo-capable timeline | Independently deployable milestones; ruthless MVP cut |
 | No real customer data in demos | Synthetic schemas and fixtures only |
 | Thousands of users / millions of operations (design target) | Partitioning, queues, caching, pagination mandatory—not optional polish |
 | **v1 primary deliverable** | Local Mac `.dmg` + landing page; **zero GraphScope servers** |
 | **No ORM** | All persistence via SQL migrations + repositories |
-| **SQLite default** | Optional local MySQL; no managed DB |
+| **PostgreSQL embedded** | Optional external PG URL; optional local Redis; no managed cloud DB |
 
 ---
 
@@ -728,5 +739,6 @@ Phase 1 documentation is accepted when:
 |---|---|---|
 | 1.0.0 | 2026-08-05 | Initial PRD from GraphScope engineering specification |
 | 1.1.0 | 2026-08-05 | Desktop-first macOS |
-| 1.2.0 | 2026-08-05 | Local-only, SQLite/no ORM |
+| 1.4.0 | 2026-08-05 | PostgreSQL + Knex + Express + Apollo stack (local) |
+| 1.2.0 | 2026-08-05 | Local-only (superseded by 1.4) |
 | 1.3.0 | 2026-08-05 | Open source + Postman-class daily use; ADR-0009 |

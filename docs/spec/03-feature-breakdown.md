@@ -5,7 +5,7 @@
 | Product | GraphScope |
 | Document | Milestones / Phase 3 |
 | Status | Approved for implementation |
-| Version | 1.2.0 |
+| Version | 1.4.0 |
 | Last updated | 2026-08-05 |
 | Primary deliverable | Local macOS `.dmg` — zero GraphScope servers |
 | Depends on | [01-prd.md](./01-prd.md), [02-system-design.md](./02-system-design.md) |
@@ -20,13 +20,15 @@
 4. **Estimates** assume one senior full-stack engineer; calendar weeks include integration buffer.
 5. **Desktop-first delivery** — every milestone advances the Mac Electron app toward v1 GA.
 6. **Local-only** — no milestone may require GraphScope-hosted infrastructure.
-7. **SQL-first** — each milestone ships migrations + repositories; no ORM.
+7. **Knex-first** — each milestone ships Knex migrations + repository queries.
+
+> **v1.4 stack note:** M0–M2 and M8–M9 are fully aligned to **Express + PostgreSQL + Knex + Apollo Client + graphile-worker**. M3–M7 describe feature intent; implement using the local stack (no S3, gateway, OpenSearch, or cloud deployables). Replace any legacy references with local equivalents during sprint planning.
 
 ### Phase-to-milestone mapping
 
 | Spec phase | Outcome |
 |---|---|
-| Phase 1–2 | Local desktop + SQLite/no ORM locked |
+| Phase 1–2 | Local desktop + PostgreSQL/Knex/Express locked |
 | Phase 3 M0–M9 | Feature-complete local Mac app |
 | Phase 4 | Sprint execution |
 | Phase 5 | `.dmg` + landing page + **Product Hunt** |
@@ -57,81 +59,49 @@ flowchart LR
 ## 2. Milestone M0 — Platform Skeleton
 
 ### Purpose
-Monorepo + Electron shell + **local API stub** + **SQLite migration V001** — no Docker, no cloud.
+Monorepo + Electron shell + **Express API stub** + **embedded PostgreSQL** + **Knex migration V001** — no cloud, no Docker required for end users.
 
 ### Feature List
 - pnpm + Turborepo
-- `apps/api` health-only NestJS monolith on loopback
-- `apps/desktop` opens renderer
-- `database/migrations/sqlite/V001__init_core.sql`
-- `packages/db` connection + migrate runner (**no ORM**)
+- `apps/api` health-only **Express + Apollo Server** on loopback
+- `apps/web` with **Apollo Client** provider stub
+- `apps/desktop` opens renderer; spawns embedded PG + API
+- `database/migrations/` Knex V001 (`core_workspace`, `core_job`, `audit_event`)
+- `packages/db` Knex connection + migrate runner
 - `apps/landing` static stub
-- CI: lint, typecheck, migration smoke on `:memory:` SQLite
+- CI: lint, typecheck, Knex migrate smoke on Docker Postgres
+- `packages/ui` — shadcn primitives + GraphScope tokens + `AppShell` stub ([06-design-system.md](./06-design-system.md))
+- `docker-compose.yml` — **dev/CI only** (Postgres 16)
 
 ### Database Changes
-- V001: `core_workspace`, `core_project`, `core_job`, `audit_event` (see data engineering doc)
+- Knex V001: `core_workspace`, `core_project`, `core_job`, `audit_event`
 
 ### Backend Tasks
-- SQLite migrate on API boot
-- Repository stub for workspace
+- Knex migrate on API boot
+- Express `/healthz` route
+- Repository stub for workspace (Knex, workspace-scoped)
+
+### Frontend Tasks
+- Next.js App Router skeleton; Apollo Client → localhost GraphQL
+- `packages/ui`: Tailwind + shadcn init, CSS tokens, dark default, `AppShell` stub
+- `apps/web` imports `@graphscope/ui` only (no duplicate primitives)
+- Electron: `BrowserWindow`, dev loads renderer
 
 ### Desktop Tasks
-- Spawn/kill API child process
-- No Docker prerequisites UI
+- Spawn/kill embedded-postgres + API child process
+- No Docker prerequisites UI for end users
 
 ### Definition of Done
 - [ ] `pnpm desktop:dev` opens app; API health OK
-- [ ] Migrations apply on fresh DB
-- [ ] No compose/docker in repo required to run
-
-### Database Changes
-- `users` (id, github_id nullable, email, name, created_at, updated_at)
-- `organizations` (id, name, slug, created_at, updated_at)
-- `_prisma_migrations`
-
-### GraphQL Schema Changes
-- Gateway + each subgraph: `Query.health: Health!`
-- Federation `_service { sdl }` available on subgraphs
-
-### Backend Tasks
-- Scaffold Nest apps; shared `packages/config`, `packages/telemetry`, `packages/shared-types`
-- Wire Prisma client package
-- Uniform logging middleware
-
-### Frontend Tasks
-- Next.js App Router skeleton; `/app` shell; remove marketing-first assumption (desktop is the product)
-- Tailwind + shadcn/ui init; CSS variables for brand
-- Electron: `BrowserWindow`, dev loads `http://localhost:3000`, prod loads file:// or embedded static server
-
-### Desktop Tasks
-- Scaffold `apps/desktop` with electron-vite or electron-forge + pnpm workspace link to `apps/web`
-- Register `graphscope://` protocol (stub handler)
-- macOS menu template (app name, quit, edit, view, window)
-
-### Infrastructure Tasks
-- `docker-compose.yml`, Dockerfiles (multi-stage stubs)
-- `deploy/electron/electron-builder.yml` stub
-- `.env.example`
-- `ci.yml` + `desktop-smoke.yml`
-
-### Testing
-- Unit: config env schema parse
-- Smoke: compose health endpoints return 200
-- CI must be green on empty feature set
-
-### Edge Cases
-- Port conflicts locally documented
-- OpenSearch memory settings for local Docker
-
-### Definition of Done
-- [ ] `pnpm install && docker compose up` yields healthy gateway
-- [ ] `pnpm desktop:dev` opens Electron window with Next.js UI
-- [ ] CI green on main (including macOS Electron smoke)
-- [ ] Turborepo builds all packages/apps
-- [ ] No secrets committed
+- [ ] Knex migrations apply on fresh embedded PG
+- [ ] Apollo Client fetches `health` query
+- [ ] App renders `AppShell` with shadcn Sidebar (empty nav)
+- [ ] Dark theme default; no hardcoded hex in `apps/web`
+- [ ] No compose/docker required for desktop dev (embedded PG path)
+- [ ] CI green with Docker Postgres migration smoke
 
 ### Implementation Order
-1. Workspace tooling → 2. packages → 3. services stubs → 4. web shell → 5. **desktop shell** → 6. compose → 7. CI → 8. README
+1. Workspace tooling → 2. Knex + embedded PG → 3. Express API stub → 4. `packages/ui` + shadcn → 5. web + Apollo Client → 6. desktop shell → 7. CI → 8. README
 
 ### Dependencies
 None.
@@ -143,98 +113,77 @@ None.
 **1.5 weeks**
 
 ### Potential Risks
-Over-scaffolding unused abstractions — mitigate by keeping stubs thin.
+Embedded PG binary size — mitigate with lazy download on first launch.
 
 ---
 
-## 3. Milestone M1 — Auth & Tenancy
+## 3. Milestone M1 — Auth & Workspace (local)
 
 ### Purpose
-Users can sign in with GitHub, create orgs/workspaces, manage members/roles, and call the gateway as an authenticated principal. Tenant isolation is proven.
+User connects GitHub via **Device Flow** or **PAT** (Keychain), creates/switches **local workspaces**, and all API calls are workspace-scoped. Cross-workspace isolation is proven.
 
 ### Feature List
-- GitHub OAuth login/logout via **system browser + `graphscope://` deep link**
-- JWT access + opaque refresh stored in **macOS Keychain**
-- Organization / workspace CRUD
-- Memberships + RBAC roles
-- API key create/revoke (hashed)
+- GitHub **Device Flow** + optional PAT in Keychain
+- Local workspace CRUD (no cloud org)
+- Workspace switcher in app shell
+- `core_session` in PostgreSQL; optional Redis session cache
+- RBAC roles within workspace (OWNER, ADMIN, EDITOR, RUNNER, VIEWER)
 - Audit events for authz-sensitive actions
-- Desktop: login window flow, org switcher in app shell, members settings
-- Cross-tenant denial test suite
+- Cross-workspace denial test suite
 
-### Database Changes
-- Extend `users` with GitHub profile fields
-- `workspaces`, `memberships`, `sessions`, `refresh_tokens`, `api_keys`, `audit_events`
-- Indexes per system design
+### Database Changes (Knex migrations)
+- `core_user`, `core_workspace`, `core_membership`, `core_session`, `audit_event`
+- Composite indexes on `(workspace_id, …)`
 
-### GraphQL Schema Changes (identity subgraph)
+### GraphQL Schema Changes
 ```graphql
-type User @key(fields: "id") { id: ID! email: String! name: String }
-type Organization @key(fields: "id") { id: ID! name: String! slug: String! }
-type Workspace @key(fields: "id") { id: ID! name: String! organizationId: ID! }
+type User { id: ID! githubLogin: String name: String }
+type Workspace { id: ID! name: String! slug: String! }
 type Membership { id: ID! role: WorkspaceRole! user: User! }
 enum WorkspaceRole { OWNER ADMIN EDITOR RUNNER VIEWER }
-type ApiKey { id: ID! name: String! prefix: String! createdAt: DateTime! lastUsedAt: DateTime }
-type AuditEvent { id: ID! action: String! actorId: ID! createdAt: DateTime! metadata: JSON }
 
 type Query {
   me: User
-  organization(id: ID!): Organization
+  workspaces: [Workspace!]!
   workspace(id: ID!): Workspace
-  auditEvents(workspaceId: ID!, cursor: String, limit: Int): AuditEventConnection!
 }
 type Mutation {
-  createOrganization(input: CreateOrganizationInput!): Organization!
   createWorkspace(input: CreateWorkspaceInput!): Workspace!
-  inviteMember(input: InviteMemberInput!): Membership!
-  updateMemberRole(input: UpdateMemberRoleInput!): Membership!
-  removeMember(input: RemoveMemberInput!): Boolean!
-  createApiKey(input: CreateApiKeyInput!): CreateApiKeyPayload! # returns raw once
-  revokeApiKey(id: ID!): Boolean!
+  switchWorkspace(id: ID!): Workspace!
+  githubDeviceFlowStart: DeviceFlowPayload!
+  githubDeviceFlowPoll(deviceCode: String!): AuthPayload
   logout: Boolean!
 }
 ```
 
 ### Backend Tasks
-- `AuthModule` OAuth + token issuance
-- Guards: `JwtAuthGuard`, `ApiKeyGuard`, `AbilityGuard`
-- `packages/auth` ability factory from role
+- Express auth middleware + workspace context
+- Knex repositories with mandatory `workspace_id` filter
+- GitHub Device Flow client (no callback server)
 - Audit writer helper
-- Gateway auth middleware
 
 ### Frontend Tasks
-- Pages: `/login`, `/app`, `/app/settings/members`
-- Hooks: `useViewer`, `useWorkspace`, `useAbility`
-- Components: `OrgSwitcher`, `MemberTable`, `RoleSelect`, `ApiKeyDialog`
+- Apollo Client auth link (session header)
+- Pages: `/login`, `/app`, workspace switcher
+- Hooks: `useViewer`, `useWorkspace`
 
 ### Desktop Tasks
-- OAuth: open external browser; handle deep link in main; IPC token to renderer
-- Keychain storage for refresh token via preload API
-- Login error states when local engine offline
-
-### Infrastructure Tasks
-- Secrets for GitHub OAuth in compose/CI
-- Redis for refresh/session
+- Keychain IPC for GitHub token + PAT
+- Device Flow code display in app UI
 
 ### Testing
-- E2E OAuth (mocked GitHub)
-- Unit ability matrix
-- Integration IDOR tests across orgs
-- Refresh rotation + reuse detection tests
-
-### Edge Cases
-- User with verified email colliding across GitHub accounts
-- Last owner removal forbidden
-- Expired access with valid refresh mid-request
+- Integration IDOR tests across workspaces
+- Device Flow mocked in CI
+- Knex repository unit tests
 
 ### Definition of Done
-- [ ] Login → create org → invite → role enforce works
-- [ ] Cross-tenant tests required in CI and passing
-- [ ] API key can authenticate CLI-shaped REST/GQL call
-- [ ] Audit log records key create/revoke and role changes
+- [ ] Device Flow login → create workspace → switch workspace works
+- [ ] Cross-workspace tests required in CI and passing
+- [ ] All list queries scoped by `workspace_id`
+- [ ] Audit log records login and workspace create
 
 ### Implementation Order
-1. Schema/DB → 2. OAuth/tokens → 3. RBAC → 4. Gateway wire-up → 5. UI → 6. isolation tests
+1. Knex migrations → 2. Device Flow → 3. workspace context middleware → 4. GraphQL resolvers → 5. Apollo Client auth → 6. isolation tests
 
 ### Dependencies
 M0
@@ -245,25 +194,20 @@ M0
 ### Estimated Time
 **2 weeks**
 
-### Potential Risks
-OAuth redirect mismatch across environments — document callback URLs early.
-
 ---
 
-## 4. Milestone M2 — Catalog & Schema Registry Core
+## 4. Milestone M2 — Catalog & Schema Registry Core (local)
 
 ### Purpose
-Teams create projects, publish schema versions via CLI/CI, view history, and run breaking-change checks (non-federated).
+User creates projects, publishes schema versions via UI/CLI, views history, and runs breaking-change checks — all stored in local PostgreSQL via Knex.
 
 ### Feature List
-- Projects CRUD
-- Schema + immutable SchemaVersion
-- MinIO/S3 SDL blob storage
-- `schema:publish` / `schema:check` CLI
-- REST `/v1/schemas/publish|check`
-- Check job with Inspector rules
-- UI: project home, version list, diff view
-- Feature flag `registry.enabled`
+- Projects CRUD (Knex repositories, workspace-scoped)
+- Schema + immutable `core_schema_version` (SCD Type 2)
+- SDL files on disk under Application Support
+- `schema:publish` / `schema:check` CLI → localhost GraphQL
+- `schema.check` graphile-worker task with GraphQL Inspector
+- Apollo Client UI: project home, version list, diff view
 
 ### Database Changes
 - `projects`, `schemas`, `schema_versions`, `schema_checks`
@@ -312,7 +256,7 @@ type Mutation {
 ### Backend Tasks
 - Blob storage adapter (MinIO local / S3 prod)
 - Normalize SDL + hash
-- BullMQ `schema.check` worker
+- graphile-worker `schema.check` task
 - OpenAPI for REST endpoints
 - CLI package `@graphscope/cli`
 
@@ -812,85 +756,28 @@ Cost overruns — hard budgets default ON.
 
 ---
 
-## 10. Milestone M8 — Polish Jobs, Optional MySQL & Federation Checks (local)
+## 10. Milestone M8 — Jobs, Redis Cache & Composition Checks (local)
 
 ### Purpose
-Local federation-style **schema composition checks** (SDL merge only), optional MySQL engine toggle, macOS notifications — still **no servers**.
+Harden **graphile-worker** jobs, optional **local Redis** cache, local schema composition checks, macOS notifications — still **no GraphScope servers**.
 
 ### Feature List
-- Optional Settings → Database → MySQL connection + `mysql/` migrations
+- Optional Settings → `GRAPHSCOPE_REDIS_URL` for SDL/session cache
+- graphile-worker retry/DLQ visibility in UI
 - Local supergraph SDL merge validation (not Apollo Router)
 - macOS Notification Center on parse/check complete
-- Gateway hardening: complexity/depth limits in local Apollo Server
+- Apollo Server hardening: complexity/depth limits
+- Query optimization pass: document EXPLAIN improvements in `docs/perf/`
 
 ### Definition of Done
-- [ ] App runs fully on SQLite with zero external deps
-- [ ] MySQL mode smoke-tested if enabled
+- [ ] App runs fully on embedded PostgreSQL with zero external deps (Redis optional)
+- [ ] graphile-worker tasks complete reliably with retry
+- [ ] Redis cache hit path tested when enabled
 - [ ] No network call to GraphScope domains
-
-### Purpose
-Compose Federation v2 subgraphs for the *product* graph maturity and customer registry composition; ship email notifications; harden for staging.
-
-### Feature List
-- Customer schema composition job + UI errors
-- Platform supergraph composition in CI (already partially in M0–M2 — finalize)
-- Email notifications for check failures / index complete
-- Slack stub interface (optional enable)
-- Rate limiting defaults tuned
-- Complexity/depth limits on gateway
-- Persisted queries (APQ) enabled
-
-### Database Changes
-- `schema_subgraphs`, `supergraph_compositions`
-- `notification_preferences`, `notification_deliveries`
-
-### GraphQL Schema Changes
-```graphql
-type SupergraphComposition {
-  id: ID!
-  status: CompositionStatus!
-  errors: [CompositionError!]!
-  createdAt: DateTime!
-}
-type Mutation {
-  registerSubgraphSchema(input: RegisterSubgraphInput!): SchemaVersion!
-  composeSupergraph(projectId: ID!): SupergraphComposition!
-  updateNotificationPreferences(input: NotificationPrefsInput!): NotificationPreferences!
-}
-```
-
-### Backend Tasks
-- Composition worker using `@apollo/composition` or rover equivalent library
-- SMTP email dispatcher via Mailhog local
-- Gateway plugins hardening
-
-### Frontend Tasks
-- Composition status page
-- Notification settings
-- Banner for composition errors
-
-### Infrastructure Tasks
-- Helm charts for staging
-- Alert rules for queue lag / 5xx
-- Cert-manager annotations documented
-
-### Testing
-- Compose success/failure fixtures
-- Email rendered + idempotent delivery
-- Load smoke (k6) on gateway
-
-### Edge Cases
-- Subgraph SDL incompatible versions
-- Email soft-bounce handling (log only MVP)
-
-### Definition of Done
-- [ ] Composition fixtures pass/fail correctly
-- [ ] Email received in Mailhog for failed check
-- [ ] Staging Helm deploy documented and performed once
-- [ ] APQ + complexity limits active
+- [ ] At least one documented query optimization (before/after EXPLAIN)
 
 ### Implementation Order
-1. Platform CI composition finalize → 2. customer compose → 3. notify email → 4. gateway hardening → 5. Helm staging
+1. Worker hardening → 2. Redis optional cache → 3. composition checks → 4. notifications → 5. complexity limits → 6. perf docs
 
 ### Dependencies
 M2+, M6 recommended
@@ -899,10 +786,10 @@ M2+, M6 recommended
 **L**
 
 ### Estimated Time
-**2.5 weeks**
+**2 weeks**
 
 ### Potential Risks
-Federation API churn — pin package versions via ADR.
+Redis optional path untested — require CI job with and without Redis.
 
 ---
 

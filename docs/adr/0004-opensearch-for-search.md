@@ -1,39 +1,31 @@
-# ADR-0004 — OpenSearch for Global Search
+# ADR-0004 — Search Engine
 
 | Field | Value |
 |---|---|
-| Status | Superseded for v1 by SQLite FTS5 in [0007](./0007-local-sql-no-orm.md) |
+| Status | Accepted (updated v1.4 — PostgreSQL FTS) |
 | Date | 2026-08-05 |
-| Deciders | GraphScope architecture |
+| Related | [ADR-0010](./0010-postgresql-knex-express-stack.md) |
 
 ## Context
 
-Users need fast search across operations, types, fields, repositories, and collections within a workspace/org.
+Original ADR chose OpenSearch for full-text search in a cloud deployment. v1.2 superseded with SQLite FTS5.
 
-## Options
-
-1. **PostgreSQL full-text (`tsvector`)** — fewer components
-2. **Meilisearch** — great DX; less “enterprise” ops story
-3. **OpenSearch** — relevance, filters, scale, ILM
+v1.4 uses **PostgreSQL native full-text search** — no OpenSearch, no Elasticsearch cluster, no cloud search service.
 
 ## Decision
 
-Use **OpenSearch** with asynchronous projections from PostgreSQL via outbox + BullMQ. PostgreSQL remains source of truth; search is rebuildable.
+- **`tsvector` + GIN indexes** on `core_operation`, schema type/field documents
+- Maintained via Knex migrations + triggers or application-level reindex jobs
+- `search.reindex` job type in graphile-worker
+- Ranked search via `ts_rank`; prefix matching for ⌘K palette
 
 ## Rationale
 
-- Fits design capacity (millions of operations, type/field graph filters)
-- Strong filter+relevance story for schema-centric UX
-- Aligns with enterprise portfolio narrative
-- Decouples query load from primary OLTP
+- Same database engine as rest of app — no extra process for default users
+- Demonstrates PostgreSQL query features (FTS, indexes) valued in backend roles
+- Optional future: local Elasticsearch for advanced search (out of v1 scope)
 
 ## Consequences
 
-- Additional operational component in Compose/Helm
-- Index lag must be monitored (target < 30s for interactive UX)
-- Local memory footprint needs documented limits
-
-## Follow-ups
-
-- Index Lifecycle Management for older docs
-- Consider hybrid autocomplete via edge n-grams
+- No OpenSearch / Elastic Cloud in v1
+- Search quality sufficient for local workspace scale (10⁴–10⁶ documents)

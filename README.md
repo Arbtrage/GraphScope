@@ -1,14 +1,14 @@
 # GraphScope
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Open Source](https://img.shields.io/badge/Open%20Source-Yes-green.svg)](https://github.com/YOUR_ORG/graphscope)
+[![Open Source](https://img.shields.io/badge/Open%20Source-Yes-green.svg)](https://github.com/Arbtrage/GraphScope)
 
 **The open source Postman for GraphQL — on your Mac, for free.**
 
 GraphScope is a **local-first desktop workspace** for GraphQL teams and solo developers. Use it **daily like Postman**: collections, environments, secrets, history, and a request runner — plus GraphQL superpowers: repo discovery, schema registry, Voyager visualization, breaking-change checks, and schema-aware AI.
 
 > **No GraphScope account. No subscription. No servers we operate.**  
-> Download the `.dmg` from [GitHub Releases](https://github.com/YOUR_ORG/graphscope/releases) or build from source.
+> Download the `.dmg` from [GitHub Releases](https://github.com/Arbtrage/GraphScope/releases) or build from source.
 
 ## Use it like Postman
 
@@ -38,8 +38,8 @@ GraphScope is a **local-first desktop workspace** for GraphQL teams and solo dev
 
 ## Quick start
 
-1. Download `GraphScope-x.y.z.dmg` from [Releases](https://github.com/YOUR_ORG/graphscope/releases)  
-2. Open the app → local database is created automatically (SQLite)  
+1. Download `GraphScope-x.y.z.dmg` from [Releases](https://github.com/Arbtrage/GraphScope/releases)  
+2. Open the app → embedded PostgreSQL starts automatically  
 3. Add a repo or local folder → browse discovered operations  
 4. Create an environment → run your first query  
 
@@ -49,9 +49,25 @@ Or build from source — see [CONTRIBUTING.md](CONTRIBUTING.md) (added at implem
 
 Engineering docs: **[docs/spec/README.md](docs/spec/README.md)**
 
-## Stack (v1)
+## Stack (v1.4)
 
-Electron · Next.js · NestJS (local API) · SQLite + raw SQL migrations · No ORM · No Docker
+| Layer | Technology |
+|---|---|
+| Desktop | Electron + Next.js |
+| UI | **shadcn/ui** + Tailwind + GraphScope tokens (`packages/ui`) |
+| GraphQL client | **Apollo Client** |
+| API | **Express** + **Apollo Server** (local loopback) |
+| Database | **PostgreSQL 16** (embedded, local) |
+| Migrations & SQL | **Knex** |
+| Jobs | **graphile-worker** (PostgreSQL queue) |
+| Search | PostgreSQL **full-text search** |
+| Cache (optional) | Local **Redis** when configured |
+
+**Not in v1:** cloud hosting, maintainer-operated API/DB, Docker required for end users.
+
+## Portfolio narrative
+
+GraphScope demonstrates production-grade **Node.js / Express / GraphQL / PostgreSQL / Knex** backend engineering in a shippable open-source desktop product — migrations, query optimization, background workers, and Apollo Client integration — without requiring cloud infrastructure.
 
 ## Contributing
 

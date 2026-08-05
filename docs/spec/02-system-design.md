@@ -5,11 +5,12 @@
 | Product | GraphScope |
 | Document | System Architecture / Phase 2 |
 | Status | Approved for implementation |
-| Version | 1.2.0 |
+| Version | 1.4.0 |
 | Last updated | 2026-08-05 |
 | Primary client | macOS desktop — **local-only, zero GraphScope servers** |
 | Data guide | [02-local-data-engineering.md](./02-local-data-engineering.md) |
-| ADRs | … [0009](../adr/0009-open-source-apache-2.md) (open source, Postman-class) |
+| Design system | [06-design-system.md](./06-design-system.md) |
+| ADRs | [0010](../adr/0010-postgresql-knex-express-stack.md), [0009](../adr/0009-open-source-apache-2.md) |
 
 ---
 
@@ -18,8 +19,10 @@
 Unambiguous architecture for a **Product Hunt–ready macOS app** that:
 
 - Requires **no maintainer servers** (landing page only deploy)
-- Stores all data **locally** (SQLite default; optional local MySQL)
-- Uses **raw SQL + migrations** — **no ORM**
+- Stores all data **locally** in **embedded PostgreSQL**
+- Uses **Knex** for migrations and repository queries
+- Runs **Express + Apollo Server** GraphQL API on loopback
+- Uses **Apollo Client** in the renderer
 - Distributes via **GitHub Releases `.dmg`**
 
 Every major decision: **options → choice → why**.
@@ -33,21 +36,20 @@ Every major decision: **options → choice → why**.
 | Maintainer infrastructure | **Landing page only** | Zero ops/cost |
 | User infrastructure | **Everything on Mac** | Privacy; no account on GraphScope servers |
 | Distribution | GitHub Releases `.dmg` | OSS norm; linked from landing + Product Hunt |
-| Client | Electron + Next.js renderer | Postman-class desktop |
-| API | Single NestJS monolith (`apps/api`) on loopback | [ADR-0008](../adr/0008-local-monolith-api.md) |
-| Database (default) | **SQLite 3** embedded | Zero install for PH users |
-| Database (optional) | Local **MySQL 8+** / MariaDB | User-configured in Settings |
-| Data access | **No ORM** — `better-sqlite3` / `mysql2` + repositories | User requirement; data engineering control |
-| Schema | Versioned SQL in `database/migrations/` | DDL is source of truth |
+| Client | Electron + Next.js + **Apollo Client** + **shadcn/ui** | Postman-class desktop; [06-design-system.md](./06-design-system.md) |
+| API | **Express** modular monolith (`apps/api`) on loopback | [ADR-0008](../adr/0008-local-monolith-api.md), [ADR-0010](../adr/0010-postgresql-knex-express-stack.md) |
+| Database | **PostgreSQL 16 embedded** (`embedded-postgres`) | Real Postgres; zero user install |
+| Data access | **Knex 3** migrations + query builder | Industry-standard; reviewable SQL |
 | Modeling | `stg_` / `core_` / `mart_` / `audit_` layers | Data engineering practice |
-| Search | SQLite **FTS5** | No OpenSearch |
-| Jobs | `core_job` table + in-process worker | No Redis/BullMQ |
+| Search | **PostgreSQL FTS** (`tsvector` + GIN) | [ADR-0004](../adr/0004-opensearch-for-search.md) |
+| Jobs | **graphile-worker** (PostgreSQL queue) | Background workers without cloud SQS |
+| Cache (optional) | Local **Redis** via `ioredis` | Graceful degrade if absent |
 | SDL files | `~/Library/Application Support/GraphScope/schemas/` | No S3 |
 | GitHub | Device Flow / user PAT + local `git` | No GraphScope GitHub App / webhooks |
 | AI | User's OpenAI key in Keychain | No GraphScope AI proxy |
 | GraphQL | Single local schema | Federation deferred to v2 cloud |
 
-**Removed from v1:** PostgreSQL, Prisma, Redis, Docker Compose, K8s, microservices, Federation gateway, OpenSearch, cloud SaaS.
+**Removed from v1:** Cloud Postgres/Redis, NestJS, Prisma, SQLite, Docker requirement for users, microservices, Federation gateway, OpenSearch, maintainer-operated SaaS.
 
 ---
 
@@ -58,11 +60,13 @@ flowchart TB
   subgraph userMac [User Mac]
     subgraph app [GraphScope.app]
       Main[Electron Main]
-      UI[Next.js Renderer]
-      API[Local API NestJS GraphQL]
-      Worker[Job Worker in-process]
+      UI[Next.js + Apollo Client]
+      API[Express + Apollo Server]
+      Worker[graphile-worker]
+      EPG[embedded-postgres]
     end
-    DB[(SQLite graphscope.db)]
+    PG[(PostgreSQL local)]
+    Redis[(Redis optional)]
     Files[Application Support]
     KC[Keychain secrets]
   end
@@ -78,13 +82,16 @@ flowchart TB
     Rel[GitHub Releases dmg]
   end
 
+  Main --> EPG
+  EPG --> PG
   Main --> UI
   Main --> API
-  UI -->|127.0.0.1:47321| API
-  API --> DB
+  Main --> Worker
+  UI -->|127.0.0.1:47321/graphql| API
+  API --> PG
+  Worker --> PG
+  API --> Redis
   API --> Files
-  API --> Worker
-  Worker --> DB
   API --> KC
   API --> GH
   API --> GQL
@@ -99,22 +106,25 @@ flowchart TB
 ```text
 GraphScope/
   apps/
-    desktop/          # Electron
-    web/              # Renderer UI
-    api/              # Local NestJS monolith
+    desktop/          # Electron — spawn PG, API, worker
+    web/              # Next.js renderer + Apollo Client
+    api/              # Express + Apollo Server monolith
     landing/          # Static marketing — ONLY deploy
     cli/
   database/
-    migrations/sqlite/
-    migrations/mysql/
+    migrations/       # Knex migrations (PostgreSQL)
+    seeds/
     docs/DATA_DICTIONARY.md
+  scripts/
+    analytics/        # Knex rollup scripts
+    migrate.ts
   packages/
-    db/               # Repositories — raw SQL
+    db/               # Knex instance + repositories
     auth/
     config/
     shared-types/
     graphql-schema/
-    ui/
+    ui/               # shadcn primitives + GraphScope composites
   deploy/electron/
   docs/spec/ + docs/adr/
 ```
@@ -122,10 +132,12 @@ GraphScope/
 ### Startup sequence
 
 1. User opens GraphScope.app
-2. Main: run pending SQLite migrations
-3. Main: spawn `apps/api` → wait for `/healthz`
-4. Main: open window → renderer loads
-5. Quit: stop API, `PRAGMA wal_checkpoint`
+2. Main: start **embedded-postgres** → wait for ready
+3. Main: run pending **Knex migrations**
+4. Main: spawn `apps/api` (Express) → wait for `/healthz`
+5. Main: start **graphile-worker** poll loop
+6. Main: open window → renderer loads Apollo Client
+7. Quit: stop worker + API, checkpoint PG, stop embedded-postgres
 
 ---
 
@@ -133,15 +145,15 @@ GraphScope/
 
 | Module | Responsibility |
 |---|---|
-| `WorkspaceModule` | Local workspaces |
-| `AuthModule` | Session + GitHub token refs |
-| `CatalogModule` | Projects, schemas, envs, collections |
-| `ParserModule` | Git clone, parse, staging → core promotion |
-| `ExecutionModule` | Proxy + SSRF guards |
-| `AnalyticsModule` | Rules, findings, `mart_*` rollups |
-| `AiModule` | OpenAI with user key |
-| `SearchModule` | FTS5 |
-| `JobModule` | Poll `core_job` |
+| `workspace` | Local workspaces; `workspace_id` scoping |
+| `auth` | Session + GitHub token refs |
+| `catalog` | Projects, schemas, envs, collections |
+| `parser` | Git clone, parse, staging → core promotion |
+| `execution` | Proxy + SSRF guards |
+| `analytics` | Rules, findings, `mart_*` rollups |
+| `ai` | OpenAI with user key |
+| `search` | PostgreSQL FTS queries |
+| `jobs` | graphile-worker task registration |
 
 GraphQL endpoint: `http://127.0.0.1:47321/graphql`
 
@@ -154,16 +166,16 @@ GraphQL endpoint: `http://127.0.0.1:47321/graphql`
 | GitHub (Device Flow / PAT) | Keychain |
 | OpenAI API key | Keychain |
 | Environment tokens | Keychain |
-| App session | SQLite `core_session` |
+| App session | PostgreSQL `core_session` (+ optional Redis cache) |
 
-**No GraphScope OAuth server.** GitHub Device Flow recommended ([no callback server needed](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow)).
+**No GraphScope OAuth server.** GitHub Device Flow recommended.
 
 ---
 
 ## 7. Authorization
 
 - **Workspace-scoped** RBAC (roles unchanged from PRD matrix)
-- Every SQL query includes `workspace_id` filter
+- Every Knex query includes `workspace_id` filter
 - CI tests: workspace A cannot read workspace B rows
 
 ---
@@ -171,7 +183,7 @@ GraphQL endpoint: `http://127.0.0.1:47321/graphql`
 ## 8. Schema Registry (local)
 
 1. User publishes SDL via UI or CLI → file on disk + `core_schema_version` row (SCD Type 2)
-2. Check job enqueued in `core_job` → GraphQL Inspector rules → `core_schema_check`
+2. Check job enqueued via graphile-worker → GraphQL Inspector rules → `core_schema_check`
 3. Diff rendered in UI from normalized SDL strings
 
 No S3. No remote registry.
@@ -183,18 +195,18 @@ No S3. No remote registry.
 ```mermaid
 sequenceDiagram
   participant U as User
-  participant API as Local API
-  participant J as core_job worker
+  participant API as Express API
+  participant W as graphile-worker
   participant Git as local git
   participant STG as stg_parse_result
   participant CORE as core_operation
 
   U->>API: Add repo + Reindex
-  API->>J: enqueue parse.repo
-  J->>Git: clone/pull with user token
-  J->>STG: bulk insert parse rows
-  J->>CORE: promote valid ops
-  J->>API: FTS5 index update
+  API->>W: enqueue parse.repo
+  W->>Git: clone/pull with user token
+  W->>STG: bulk insert parse rows
+  W->>CORE: promote valid ops
+  W->>API: FTS index update job
 ```
 
 - Local path or GitHub clone into Application Support
@@ -216,22 +228,23 @@ Unchanged security posture — execution proxy runs in local API:
 ## 11. Analytics
 
 - Static rules on parse → `core_operation_finding`
-- Execution metrics → `mart_workspace_daily` rollups
-- Cron via `core_job` scheduled rows (daily rollup)
+- Execution metrics → `mart_workspace_daily` rollups via Knex
+- Scheduled `analytics.rollup` graphile-worker tasks
+- Ad-hoc scripts in `scripts/analytics/` for portfolio demos
 
 ---
 
 ## 12. AI Copilot
 
 - User provides OpenAI key in Settings
-- LangChain in `AiModule`; schema subset from local SDL files
+- LangChain in `ai` module; schema subset from local SDL files
 - Redaction modes; no data sent to GraphScope servers
 
 ---
 
 ## 13. Search
 
-SQLite FTS5 virtual tables maintained by triggers on `core_operation` / schema types.
+PostgreSQL `tsvector` columns + GIN indexes on `core_operation` and schema entities. `search.reindex` worker task rebuilds indexes.
 
 ---
 
@@ -240,7 +253,7 @@ SQLite FTS5 virtual tables maintained by triggers on `core_operation` / schema t
 | Threat | Control |
 |---|---|
 | SSRF | Same as §10 |
-| Local DB tampering | File permissions; app-signed bundle |
+| Local DB tampering | File permissions on PG data dir |
 | Secret leak | Keychain only for tokens |
 | Supply chain | Lockfile, CodeQL, signed dmg |
 
@@ -259,14 +272,15 @@ API binds **127.0.0.1 only** — not reachable from network.
 
 ### User
 
-Download `.dmg` from GitHub → drag to Applications → run. No account signup on GraphScope servers.
+Download `.dmg` from GitHub → drag to Applications → run. Embedded PostgreSQL starts automatically. No Docker, no brew install, no account signup.
 
-### CI
+### CI / Dev
 
-- `ci.yml` — lint, test, migration smoke on SQLite `:memory:`
+- `docker-compose.yml` — **dev/CI only** (Postgres 16 + optional Redis)
+- `ci.yml` — lint, test, Knex migration smoke on Docker Postgres
 - `release-mac.yml` — sign, notarize, upload to Releases
 
-**No** Docker, K8s, or cloud API deploy in v1.
+**No** cloud API deploy in v1.
 
 ---
 
@@ -274,6 +288,7 @@ Download `.dmg` from GitHub → drag to Applications → run. No account signup 
 
 - Structured logs to `Application Support/logs/graphscope.log`
 - Optional dev verbose mode
+- Query logging with Knex `debug` in dev
 - No Prometheus/Grafana required for v1
 
 ---
@@ -282,10 +297,11 @@ Download `.dmg` from GitHub → drag to Applications → run. No account signup 
 
 | Topic | v1 choice | v2+ if needed |
 |---|---|---|
-| SQLite vs MySQL | SQLite default | Optional MySQL connection |
+| Embedded PG vs user PG | Embedded default | Connect external Postgres URL |
+| Express vs NestJS | Express | Either if team prefers |
 | Monolith vs microservices | Monolith | Cloud team server |
 | Federation | Single schema | Apollo Federation |
-| Webhooks | Manual/poll reindex | Cloud relay |
+| Redis | Optional local | Required for scale |
 | Multi-device sync | None | Optional cloud backup |
 
 ---
@@ -293,12 +309,14 @@ Download `.dmg` from GitHub → drag to Applications → run. No account signup 
 ## 18. Acceptance Criteria (Phase 2)
 
 - [x] Zero hosted backend architecture documented
-- [x] SQLite + raw SQL + layered modeling referenced
-- [x] Local monolith API specified
+- [x] PostgreSQL + Knex + layered modeling referenced
+- [x] Express + Apollo Server local monolith specified
+- [x] Apollo Client in renderer specified
+- [x] graphile-worker job model specified
 - [x] GitHub Device Flow / PAT model
 - [x] Landing + GitHub Releases distribution
 - [x] SSRF and local-only API binding
-- [x] ADRs 0006–0008 + data engineering companion doc
+- [x] ADRs 0002, 0004, 0010 + data engineering companion doc
 
 **Exit criterion:** [03-feature-breakdown.md](./03-feature-breakdown.md)
 
@@ -310,4 +328,5 @@ Download `.dmg` from GitHub → drag to Applications → run. No account signup 
 |---|---|---|
 | 1.0.0 | 2026-08-05 | Initial (cloud/microservices) |
 | 1.1.0 | 2026-08-05 | Desktop-first |
-| 1.2.0 | 2026-08-05 | Local-only, SQLite, no ORM, PH/GitHub Releases |
+| 1.2.0 | 2026-08-05 | Local-only, SQLite, no ORM |
+| 1.4.0 | 2026-08-05 | **PostgreSQL + Knex + Express + Apollo stack** |

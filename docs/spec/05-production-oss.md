@@ -5,7 +5,7 @@
 | Product | GraphScope |
 | Document | Production / OSS Launch / Phase 5 |
 | Status | Approved for implementation |
-| Version | 1.2.0 |
+| Version | 1.4.0 |
 | Last updated | 2026-08-05 |
 | Primary deliverable | Local `.dmg` + landing page + Product Hunt |
 | Depends on | [04-implementation-plan.md](./04-implementation-plan.md) |
@@ -76,58 +76,95 @@ Everything required before **Product Hunt launch** and **GitHub Releases v1.0.0*
 - [ ] ⌘K opens global search
 - [ ] New user completes above flow in < 5 minutes without docs
 
+## 2E. Design system checklist (release gate)
+
+See [06-design-system.md](./06-design-system.md).
+
+- [ ] All UI uses `@graphscope/ui` — no duplicate shadcn in `apps/web`
+- [ ] CSS variables for brand colors; **dark mode default**
+- [ ] `AppShell` with sidebar + main layout on all app routes
+- [ ] Five interaction states on custom Tier B components
+- [ ] ⌘K uses shadcn Command
+- [ ] Light + dark screenshots for landing page
+- [ ] Focus-visible on login, run query, and search flows
+
 ---
 
-### 2.1 Security
+## 2D. Portfolio / hiring readiness checklist
+
+Before using GraphScope in job applications, verify you can **demo and defend** each item:
+
+### Must-have stack proof (Node / Express / GraphQL / PostgreSQL / Knex)
+
+- [ ] **Knex migrations** — 10+ migrations with `up`/`down`; CI runs migrate twice
+- [ ] **PostgreSQL queries** — workspace-scoped repositories; at least 3 PRs with EXPLAIN ANALYZE
+- [ ] **Express + GraphQL** — Apollo Server middleware; 20+ operations in schema
+- [ ] **Apollo Client** — renderer uses hooks/codegen; cache policies documented
+- [ ] **Background jobs** — graphile-worker tasks for parse, check, rollup, reindex
+- [ ] **Query optimization** — one documented before/after in `docs/perf/`
+- [ ] **Cross-workspace isolation** — IDOR test suite green in CI
+
+### Good-to-have stack proof
+
+- [ ] **Redis cache** — optional local Redis path with graceful degrade
+- [ ] **Analytics scripts** — `pnpm analytics:rollup` produces mart output
+- [ ] **Scripting** — Node script for ad-hoc data export or report
+
+### Product & delivery proof
+
+- [ ] **8-minute demo script** — install → collection → env → execute → schema check
+- [ ] **Postman parity** — §2C checklist complete
+- [ ] **Signed `.dmg`** on GitHub Releases
+- [ ] **README + CONTRIBUTING** — clone-to-run in < 15 minutes (dev path)
+
+### Interview prep artifacts
+
+- [ ] Architecture diagram (local PG + Express + worker) in README
+- [ ] 3 resume bullets aligned to stack (see §24)
+- [ ] Walkthrough doc: one GraphQL request end-to-end (resolver → Knex → PG)
+
+---
+
+### 2.1 Security (local v1)
 
 - [ ] SSRF unit + integration suite green in CI (required gate)
-- [ ] Secrets encrypted at rest; no plaintext read-back API
-- [ ] JWT short TTL; refresh rotation + reuse detection verified
-- [ ] Cross-tenant IDOR suite required gate
-- [ ] Webhook HMAC verified; replay tolerance documented
+- [ ] Secrets in Keychain only; no plaintext read-back API
+- [ ] Cross-workspace IDOR suite required gate
 - [ ] Dependency scanning (Dependabot) + CodeQL enabled
-- [ ] Container images scanned; non-root; no secrets in images
-- [ ] CSP, secure cookies, CORS allowlist on web
-- [ ] AI redaction default `standard`; budgets enforced
+- [ ] AI redaction default `standard`
 - [ ] SECURITY.md with private disclosure channel
 - [ ] Audit log covers PRD-sensitive actions
+- [ ] API binds 127.0.0.1 only
 
-### 2.2 Reliability
+### 2.2 Reliability (local v1)
 
-- [ ] `/healthz` and `/readyz` on all services
-- [ ] HPA configured for gateway, parser, execution
-- [ ] Postgres automated daily backups; restore drill documented + performed
-- [ ] Redis failure mode: degrade gracefully (sessions/rate limits)
-- [ ] DLQ alerts for BullMQ
-- [ ] Staging soak ≥ 72 hours
-- [ ] RPO ≤ 24h / RTO ≤ 4h validated
+- [ ] `/healthz` and `/readyz` on Express API
+- [ ] Embedded PostgreSQL clean shutdown on app quit
+- [ ] graphile-worker retry + failed job visibility in UI
+- [ ] Optional Redis: degrade gracefully when unavailable
+- [ ] Local backup export (workspace zip) documented
 
-### 2.3 Performance & GraphQL safety
+### 2.3 Performance & GraphQL safety (local v1)
 
 - [ ] Cursor pagination on all list fields
-- [ ] DataLoader on all nested FK resolutions
-- [ ] Gateway depth limit enabled
-- [ ] Gateway complexity analysis enabled
-- [ ] APQ / persisted queries enabled
-- [ ] Rate limiting per IP + per principal
+- [ ] DataLoader on nested FK resolutions
+- [ ] Apollo Server depth + complexity limits
 - [ ] N+1 regression test (assert query count)
 - [ ] Schema version immutability tested
-- [ ] Hot schema SDL cached in Redis
-- [ ] p95 interactive SLO measured on staging
+- [ ] Hot SDL cached in optional Redis
+- [ ] PostgreSQL FTS indexes on search paths
 
-### 2.4 Observability
+### 2.4 Observability (local v1)
 
-- [ ] OTel traces across gateway → subgraphs → workers
-- [ ] Prometheus metrics scraped
-- [ ] Grafana dashboards: RED, queues, parse, execute, AI tokens
-- [ ] Alerts: 5xx, queue lag, error budget, backup failure
-- [ ] Structured logs without secrets
-- [ ] Example trace deep-link in runbook
+- [ ] Structured logs to Application Support (no secrets)
+- [ ] Knex query debug mode in dev
+- [ ] Job status visible in UI
+- [ ] Error boundaries in renderer
 
 ### 2.5 Desktop (macOS v1)
 
-- [ ] Fresh Mac: download `.dmg` from GitHub — **no Docker, no MySQL, no signup**
-- [ ] SQLite created on first launch under Application Support
+- [ ] Fresh Mac: download `.dmg` from GitHub — **no Docker, no brew postgres, no signup**
+- [ ] Embedded PostgreSQL starts on first launch under Application Support
 - [ ] API binds 127.0.0.1 only
 - [ ] GitHub Device Flow works without GraphScope server
 - [ ] Signed + notarized; Gatekeeper passes
@@ -135,39 +172,37 @@ Everything required before **Product Hunt launch** and **GitHub Releases v1.0.0*
 
 ### 2.6 Product readiness
 
-- [ ] Demo seed script idempotent
-- [ ] Sample upstream GraphQL API in compose
+- [ ] Demo seed script idempotent (`database/seeds/dev_seed.ts`)
+- [ ] Sample upstream GraphQL API for demo (local or mock)
 - [ ] Empty states for all major pages
-- [ ] Feature flags documented
-- [ ] CLI published or runnable via `pnpm`
+- [ ] CLI runnable via `pnpm cli`
 
 ---
 
-## 3. Performance Optimizations
+## 3. Performance Optimizations (local v1)
 
 | Area | Optimization |
 |---|---|
-| Gateway | APQ; persisted query hash; response caching only for pure introspection if safe |
-| Catalog | Redis cache schema SDL by `contentHash`; Voyager JSON cache |
-| Parser | Incremental path parse; commit SHA cache; worker concurrency caps |
-| Execution | Keep-alive HTTP agents; timeout budgets; parallel not used for single op |
-| Search | Bulk index; filter by orgId term first |
-| Web | RSC where possible; Apollo cache; route-level code split; avoid giant Voyager bundle on home |
-| DB | covering indexes; partition executions later; read replica for dashboards |
+| API | Apollo Server depth/complexity limits; DataLoader batching |
+| Catalog | Optional Redis cache for SDL by `contentHash`; Voyager JSON cache |
+| Parser | Incremental path parse; commit SHA cache; graphile-worker concurrency caps |
+| Execution | Keep-alive HTTP agents; timeout budgets |
+| Search | PostgreSQL GIN indexes; bulk reindex job |
+| Web | Apollo Client cache; route-level code split; lazy Voyager bundle |
+| DB | Composite `(workspace_id, …)` indexes; EXPLAIN-driven query tuning |
 
 ---
 
-## 4. Caching Strategy
+## 4. Caching Strategy (local v1)
 
 | Layer | What | Invalidation |
 |---|---|---|
-| Redis | SDL, Voyager graph, AI responses, APQ bodies | Publish/hash change; TTL |
-| CDN | Next.js static assets in `.app` bundle | Build hash |
+| Redis (optional) | SDL, Voyager graph, session lookups | Publish/hash change; TTL |
+| Apollo Client | Operation detail, lists | Mutation evict |
 | Desktop | Voyager chunk lazy-loaded | Route split |
-| Apollo Client | Operation detail, viewer | Mutation evict |
-| HTTP | None for authenticated GQL by default | — |
+| PostgreSQL | Mart rollups pre-aggregated | Rollup job schedule |
 
-**Rule:** Never cache responses containing secrets or cross-tenant data without explicit org keying.
+**Rule:** Never cache responses containing secrets or cross-workspace data without explicit `workspace_id` keying.
 
 ---
 
@@ -387,7 +422,7 @@ Sample upstream schema: `User`, `Product`, `Order`, federation-ready later.
 
 Capture from **Electron desktop builds**, not browser:
 
-1. First-run wizard (Docker + engine + login)
+1. First-run wizard (embedded PG starts)
 2. App home / project list
 3. Operation discovery list with filters
 4. Operation detail + GitHub source map
@@ -397,7 +432,7 @@ Capture from **Electron desktop builds**, not browser:
 8. Analytics dashboard + findings
 9. AI explain panel with citations
 10. ⌘K search palette
-11. Settings → Local Engine panel
+11. Settings → Database / Redis panel
 12. About / version screen with signed build info
 
 Store under `docs/images/desktop/`.
@@ -408,31 +443,29 @@ Store under `docs/images/desktop/`.
 
 ### Narrative (≈150 words)
 
-> GraphScope is a local-first GraphQL workspace for macOS I designed as a zero-ops open source product. It ships as a signed `.dmg` from GitHub — no GraphScope servers, no account, no Docker. The Electron app spawns a NestJS API on loopback with SQLite (optional local MySQL), raw SQL migrations, and layered staging/core/mart tables — deliberately no ORM. It discovers operations from your repos, registers schemas, runs SSRF-safe execution, and analyzes anti-patterns with optional OpenAI (user's key). I built it for a Product Hunt launch with only a static landing page deployed. The architecture demonstrates data engineering discipline, desktop shipping, and GraphQL depth without SaaS babysitting.
+> GraphScope is a local-first GraphQL workspace for macOS I designed as a zero-ops open source product. It ships as a signed `.dmg` from GitHub — no GraphScope servers, no account, no Docker for end users. The Electron app spawns embedded PostgreSQL and an Express + Apollo Server API on loopback, with Knex migrations, graphile-worker background jobs, and layered staging/core/mart tables. The Next.js renderer uses Apollo Client. It discovers operations from your repos, registers schemas, runs SSRF-safe execution, and analyzes anti-patterns with optional OpenAI (user's key). I built it for a Product Hunt launch with only a static landing page deployed. The stack demonstrates production-grade Node.js, GraphQL, PostgreSQL, and Knex patterns in a shippable desktop product.
 
 ### Resume bullet points
 
-- Built **GraphScope**, a **local-only macOS GraphQL desktop app** — GitHub Releases distribution, zero maintainer servers.
-- Designed **SQLite + raw SQL** data layer (`stg_`/`core_`/`mart_`) with versioned migrations — **no ORM**.
-- Implemented local **NestJS monolith** + Electron lifecycle + Keychain secrets + GitHub Device Flow.
-- Shipped **Product Hunt** launch playbook: landing page only deploy, notarized `.dmg` CI.
+- Built **GraphScope**, open-source **Postman for GraphQL** — Express, Apollo Server, PostgreSQL, Knex, graphile-worker; signed `.dmg` on GitHub Releases.
+- Authored **Knex migrations** and workspace-scoped repositories with **EXPLAIN-driven query optimization** and cross-workspace isolation tests.
+- Integrated **Apollo Client** renderer, **graphile-worker** job pipeline (parse, schema check, analytics rollup), optional **Redis** cache.
+- Shipped **Product Hunt** launch: landing page only deploy, notarized desktop CI, 8-minute demo script.
 
 ### Interview questions (with intent)
 
 | Question | What it probes |
 |---|---|
-| Why Federation instead of a modular monolith? | Tradeoff judgment |
-| Why desktop instead of web SaaS for v1? | Product + delivery strategy |
-| How does desktop OAuth work on Mac? | Deep link + Keychain |
-| How does the local engine start? | Sidecar / Compose manager |
-| How do you prevent cross-tenant IDOR? | Security depth |
-| How does the parser avoid false positives? | Heuristics + evaluation |
-| Walk through an execute call end-to-end | Systems storytelling |
-| How would you scale to 100M executions/year? | Capacity planning |
+| Why Express + Knex over NestJS/Prisma? | Stack tradeoffs; SQL visibility |
+| Why embedded PostgreSQL for a desktop app? | Local-first vs SaaS; real Postgres skills |
+| How does graphile-worker handle failed jobs? | Queue/worker patterns |
+| Walk through a GraphQL resolver → Knex → PG | Backend depth |
+| How do you prevent cross-workspace IDOR? | Security depth |
+| Show a query you optimized with EXPLAIN | PostgreSQL proficiency |
+| How does Apollo Client cache interact with mutations? | Full-stack GraphQL |
 | How do you keep AI from leaking secrets/SDL? | AI safety |
-| What’s in your schema check CI gate? | API lifecycle |
-| How do you handle GitHub rate limits? | Integration realism |
-| When would you split the database? | Evolutionary architecture |
+| Why desktop instead of web SaaS for v1? | Product + delivery strategy |
+| How does the parser avoid false positives? | Heuristics + evaluation |
 | What would you cut to ship in 8 weeks? | Product sense |
 
 ---
@@ -509,5 +542,6 @@ flowchart LR
 
 | Version | Date | Notes |
 |---|---|---|
+| 1.4.0 | 2026-08-05 | PostgreSQL/Knex/Express stack; portfolio checklist §2D |
 | 1.0.0 | 2026-08-05 | Initial production & OSS guide |
 | 1.1.0 | 2026-08-05 | macOS desktop GA focus; sign/notarize checklist |

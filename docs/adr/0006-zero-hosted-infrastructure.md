@@ -37,9 +37,10 @@ Adopt **fully local v1** (option 3):
 ## Consequences
 
 - No GraphScope GitHub App webhooks → use **local git clone + user GitHub PAT/device token** for repo sync
-- No multi-device sync in v1 → single-machine SQLite (or local MySQL) database
+- No multi-device sync in v1 → single-machine **embedded PostgreSQL** database
 - Auth is **GitHub Device Flow** or **PAT in Keychain** — no OAuth server callback
-- Microservices, Federation gateway, Redis, BullMQ, OpenSearch **removed from v1**
+- Microservices, Federation gateway, **cloud** Redis, BullMQ, OpenSearch **removed from v1**
+- **Local stack:** Express + Apollo Server, Knex, graphile-worker, optional local Redis ([ADR-0010](./0010-postgresql-knex-express-stack.md))
 - Single **modular monolith API** (`apps/api`) spawned by Electron main on `127.0.0.1`
 
 ## Follow-ups
