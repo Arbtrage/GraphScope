@@ -1,0 +1,38 @@
+name: Desktop smoke
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build desktop dependencies
+        run: |
+          pnpm --filter @graphscope/config build
+          pnpm --filter @graphscope/shared-types build
+          pnpm --filter @graphscope/db build
+          pnpm --filter @graphscope/desktop build
+
+      - name: Typecheck desktop
+        run: pnpm --filter @graphscope/desktop typecheck
+
+      - name: Smoke — Electron main loads
+        run: node -e "import('./apps/desktop/dist/main.js').then(() => console.log('main ok')).catch(e => { console.error(e); process.exit(1); })"

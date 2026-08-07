@@ -32,6 +32,12 @@ module.exports = {
           DEFAULT: "var(--accent)",
           foreground: "var(--accent-foreground)",
         },
+        success: "var(--success)",
+        warning: "var(--warning)",
+        execute: {
+          DEFAULT: "var(--execute)",
+          foreground: "var(--execute-foreground)",
+        },
         popover: {
           DEFAULT: "var(--popover)",
           foreground: "var(--popover-foreground)",
@@ -66,6 +72,23 @@ module.exports = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      fontFamily: {
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+      },
+      keyframes: {
+        "navigation-progress": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(350%)" },
+        },
+        "page-enter": {
+          "0%": { opacity: "0", transform: "translateY(6px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+      },
+      animation: {
+        "navigation-progress": "navigation-progress 1.1s ease-in-out infinite",
+        "page-enter": "page-enter 0.28s ease-out forwards",
       },
     },
   },

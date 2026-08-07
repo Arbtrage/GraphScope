@@ -1,4 +1,14 @@
 import { createHash, randomBytes } from "node:crypto";
+import { MembershipRepository } from "./membership.js";
+import { ProjectRepository } from "./project.js";
+import { SchemaRepository } from "./schema.js";
+import { RepositoryLinkRepository, JobRepository } from "./repository-link.js";
+import { OperationRepository } from "./operation.js";
+import { EnvironmentRepository } from "./environment.js";
+import { CollectionRepository, ExecutionRepository } from "./collection.js";
+import { SearchRepository } from "./search.js";
+import { AnalyticsRepository } from "./analytics.js";
+import { AiRepository } from "./ai.js";
 import type { Knex } from "knex";
 import type { AuditAction, CreateWorkspaceInput, User, Workspace, WorkspaceRole } from "@graphscope/shared-types";
 
@@ -198,7 +208,32 @@ export function createRepositories(db: Knex) {
     workspaces: new WorkspaceRepository(db),
     sessions: new SessionRepository(db),
     audit: new AuditRepository(db),
+    memberships: new MembershipRepository(db),
+    projects: new ProjectRepository(db),
+    schemas: new SchemaRepository(db),
+    repositoryLinks: new RepositoryLinkRepository(db),
+    jobs: new JobRepository(db),
+    operations: new OperationRepository(db),
+    search: new SearchRepository(db),
+    environments: new EnvironmentRepository(db),
+    collections: new CollectionRepository(db),
+    executions: new ExecutionRepository(db),
+    analytics: new AnalyticsRepository(db),
+    ai: new AiRepository(db),
   };
 }
 
 export type Repositories = ReturnType<typeof createRepositories>;
+export { MembershipRepository } from "./membership.js";
+export { ProjectRepository } from "./project.js";
+export { SchemaRepository } from "./schema.js";
+export { RepositoryLinkRepository, JobRepository } from "./repository-link.js";
+export { OperationRepository } from "./operation.js";
+export { SearchRepository } from "./search.js";
+export type { SearchResult, SearchResultKind, SearchDocumentInput } from "./search.js";
+export { EnvironmentRepository } from "./environment.js";
+export { CollectionRepository, ExecutionRepository } from "./collection.js";
+export { AnalyticsRepository } from "./analytics.js";
+export type { OperationFinding, FindingInput, WorkspaceDashboard, FindingSeverity } from "./analytics.js";
+export { AiRepository } from "./ai.js";
+export type { AiSettings, AiRedactionMode, AiInvocationKind, AiInvocationStatus, AiInvocationRecord } from "./ai.js";

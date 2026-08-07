@@ -43,7 +43,25 @@ GraphScope is a **local-first desktop workspace** for GraphQL teams and solo dev
 3. Add a repo or local folder → browse discovered operations  
 4. Create an environment → run your first query  
 
-### Development (Phase 1)
+### Install via Homebrew (optional)
+
+After a release is published to GitHub Releases:
+
+```bash
+brew install --cask graphscope
+```
+
+See [`packaging/homebrew/graphscope.rb`](packaging/homebrew/graphscope.rb) for the cask definition.
+
+### Demo data
+
+```bash
+pnpm demo:reset
+```
+
+Seeds a demo workspace with sample operations (including GS001–GS003 anti-patterns), executions, and federated schema projects.
+
+### Development
 
 ```bash
 pnpm install

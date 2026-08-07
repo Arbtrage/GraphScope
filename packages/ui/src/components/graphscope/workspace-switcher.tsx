@@ -7,11 +7,20 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "../ui/dialog.js";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, WorkspaceSwitcherTrigger } from "../ui/dropdown-menu.js";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  WorkspaceSwitcherTrigger,
+} from "../ui/dropdown-menu.js";
 import { Button } from "../ui/button.js";
 import { Input, Label } from "../ui/input.js";
+import { cn } from "../../lib/utils.js";
+import { Check, Plus } from "lucide-react";
 import * as React from "react";
 
 export interface WorkspaceOption {
@@ -23,7 +32,7 @@ export interface WorkspaceOption {
 export interface WorkspaceSwitcherProps {
   workspaces: WorkspaceOption[];
   activeWorkspaceId: string | null;
-  onSwitch: (workspaceId: string) => void;
+  onSwitch: (workspaceId: string) => Promise<void>;
   onCreate: (input: { name: string; slug: string }) => Promise<void>;
 }
 
@@ -34,10 +43,23 @@ export function WorkspaceSwitcher({
   onCreate,
 }: WorkspaceSwitcherProps) {
   const active = workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0];
-  const [open, setOpen] = React.useState(false);
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const [dialogOpen, setDialogOpen] = React.useState(false);
   const [name, setName] = React.useState("");
   const [slug, setSlug] = React.useState("");
   const [creating, setCreating] = React.useState(false);
+  const [switchingId, setSwitchingId] = React.useState<string | null>(null);
+
+  async function handleSelect(workspaceId: string) {
+    if (workspaceId === activeWorkspaceId || switchingId) return;
+    setMenuOpen(false);
+    setSwitchingId(workspaceId);
+    try {
+      await onSwitch(workspaceId);
+    } finally {
+      setSwitchingId(null);
+    }
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -46,36 +68,57 @@ export function WorkspaceSwitcher({
       await onCreate({ name, slug: slug || name.toLowerCase().replace(/\s+/g, "-") });
       setName("");
       setSlug("");
-      setOpen(false);
+      setDialogOpen(false);
     } finally {
       setCreating(false);
     }
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <DropdownMenu>
+    <>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
         <DropdownMenuTrigger asChild>
-          <WorkspaceSwitcherTrigger label={active?.name ?? "Select workspace"} />
+          <WorkspaceSwitcherTrigger
+            label={switchingId ? "Switching…" : (active?.name ?? "Select workspace")}
+          />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
+        <DropdownMenuContent align="start" className="w-56">
           <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {workspaces.map((w) => (
-            <DropdownMenuItem key={w.id} onClick={() => onSwitch(w.id)}>
-              {w.name}
-              {w.id === activeWorkspaceId ? " ✓" : ""}
-            </DropdownMenuItem>
-          ))}
+          {workspaces.length === 0 ? (
+            <DropdownMenuItem disabled>No workspaces yet</DropdownMenuItem>
+          ) : (
+            workspaces.map((w) => (
+              <DropdownMenuItem
+                key={w.id}
+                disabled={!!switchingId}
+                onSelect={() => void handleSelect(w.id)}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4 shrink-0",
+                    w.id === activeWorkspaceId ? "opacity-100" : "opacity-0",
+                  )}
+                />
+                <span className={cn(w.id === activeWorkspaceId && "font-medium")}>{w.name}</span>
+              </DropdownMenuItem>
+            ))
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              setMenuOpen(false);
+              setDialogOpen(true);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Create workspace…
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            New workspace
-          </Button>
-        </DialogTrigger>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <form onSubmit={handleCreate}>
             <DialogHeader>
@@ -100,6 +143,6 @@ export function WorkspaceSwitcher({
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

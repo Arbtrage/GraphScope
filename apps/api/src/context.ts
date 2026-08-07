@@ -4,6 +4,7 @@ import type { Repositories } from "@graphscope/db";
 export interface GraphContext {
   env: Env;
   repos: Repositories;
+  db: import("@graphscope/db").Knex;
   sessionToken: string | null;
   userId: string | null;
   workspaceId: string | null;
@@ -30,7 +31,7 @@ export function clearDeviceFlow(deviceCode: string): void {
 }
 
 export function createContext(
-  base: { env: Env; repos: Repositories },
+  base: { env: Env; repos: Repositories; db: import("@graphscope/db").Knex },
   auth: { sessionToken: string | null; userId: string | null; workspaceId: string | null },
 ): GraphContext {
   return { ...base, ...auth };

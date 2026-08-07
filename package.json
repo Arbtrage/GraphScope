@@ -10,7 +10,10 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "db:migrate": "tsx scripts/migrate.ts",
-    "api:dev": "pnpm --filter @graphscope/api dev",
+    "analytics:rollup": "tsx scripts/analytics/rollup_workspace_daily.ts",
+    "demo:reset": "tsx scripts/demo-reset.ts",
+    "schema:check:ci": "tsx scripts/schema-check-ci.ts",
+    "api:dev": "pnpm --filter @graphscope/db build && pnpm --filter @graphscope/api dev",
     "web:dev": "pnpm --filter @graphscope/web dev",
     "desktop:dev": "concurrently -k \"pnpm web:dev\" \"pnpm --filter @graphscope/desktop dev\"",
     "stack:dev": "concurrently -k \"pnpm api:dev\" \"pnpm web:dev\""
@@ -25,5 +28,10 @@
     "turbo": "^2.3.3",
     "typescript": "^5.7.2",
     "wait-on": "^8.0.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "graphql": "16.10.0"
+    }
   }
 }

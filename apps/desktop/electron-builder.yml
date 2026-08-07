@@ -1,0 +1,25 @@
+appId: com.graphscope.desktop
+productName: GraphScope
+copyright: Copyright © 2026 GraphScope contributors
+
+directories:
+  output: dist/release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - package.json
+  - "!**/*.map"
+
+mac:
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  target:
+    - dmg
+    - zip
+
+dmg:
+  title: GraphScope
+
+publish: null

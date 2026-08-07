@@ -45,6 +45,7 @@ Web: `http://localhost:3000`
 | `pnpm api:dev` | Express GraphQL API only |
 | `pnpm web:dev` | Next.js renderer only |
 | `pnpm db:migrate` | Run Knex migrations |
+| `pnpm demo:reset` | Reset demo workspace seed data |
 | `pnpm test` | Run all tests |
 | `pnpm typecheck` | TypeScript check all packages |
 
@@ -65,10 +66,40 @@ Create a GitHub OAuth App (no callback URL needed for Device Flow): https://gith
 ```text
 apps/desktop   Electron main (embedded PG, API spawn, Keychain)
 apps/web       Next.js + Apollo Client
+apps/landing   Marketing site (hero + download CTA)
 apps/api       Express + Apollo Server
 packages/ui    shadcn/ui + GraphScope design tokens
 packages/db    Knex + repositories
-database/      Knex migrations
+database/      Knex migrations + seeds
+fixtures/      Golden repos for parser recall tests
+```
+
+## Phase 3 (M8–M9)
+
+Phase 3 adds hardening and ship basics:
+
+- **Jobs dashboard** — `jobs` GraphQL query + `/app/jobs` UI for background tasks
+- **Parser golden fixtures** — `fixtures/repos/minimal` + recall tests
+- **Composition check** — local SDL merge validation (`composition-check.ts`)
+- **Demo seed** — `pnpm demo:reset` for a sample workspace, project, schema, and environment
+- **Landing + release** — `apps/landing`, electron-builder config, macOS release/smoke workflows
+- **OSS docs** — LICENSE (Apache-2.0), SECURITY.md, CODE_OF_CONDUCT.md, Product Hunt kit stub
+
+Run `pnpm demo:reset` after migrations to populate demo data. Landing dev server: `pnpm --filter @graphscope/landing dev` (port 3001).
+
+## Phase 4 (v1.1 features)
+
+- **Optional Redis** — set `GRAPHSCOPE_REDIS_URL` for AI explain caching; status in Settings
+- **Composition** — `workspaceComposition(projectId)` GraphQL + project overview badge
+- **Analytics polish** — findings on operation detail, latency chart, rich demo seed
+- **Jobs retry** — `retryJob` mutation + `/app/jobs` UI
+- **Notifications** — macOS Notification Center (desktop) + optional Slack webhook in Settings
+- **CI schema gate** — `pnpm schema:check:ci -- old.graphql new.graphql` emits GitHub Actions annotations
+
+Example GitHub Actions step:
+
+```yaml
+- run: pnpm schema:check:ci -- schemas/old.graphql schemas/new.graphql
 ```
 
 ## Pull requests
@@ -79,4 +110,4 @@ database/      Knex migrations
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE) (to be added at GA).
+Apache 2.0 — see [LICENSE](LICENSE).

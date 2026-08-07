@@ -74,14 +74,21 @@ export function DropdownMenuCheckboxItem({
   );
 }
 
-export function WorkspaceSwitcherTrigger({ label }: { label: string }) {
-  return (
-    <button
-      type="button"
-      className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-secondary px-3 text-sm font-medium hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      {label}
-      <ChevronDown className="h-4 w-4 opacity-60" />
-    </button>
-  );
-}
+export const WorkspaceSwitcherTrigger = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string }
+>(({ label, className, ...props }, ref) => (
+  <button
+    ref={ref}
+    type="button"
+    className={cn(
+      "inline-flex h-9 items-center gap-2 rounded-md border border-border bg-secondary px-3 text-sm font-medium hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      className,
+    )}
+    {...props}
+  >
+    {label}
+    <ChevronDown className="h-4 w-4 opacity-60" />
+  </button>
+));
+WorkspaceSwitcherTrigger.displayName = "WorkspaceSwitcherTrigger";

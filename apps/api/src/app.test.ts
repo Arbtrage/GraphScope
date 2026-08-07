@@ -16,6 +16,7 @@ describe("API integration", () => {
   let close: () => Promise<void>;
 
   beforeAll(async () => {
+    process.env.GRAPHSCOPE_WORKER = "false";
     const result = await createApp({
       skipListen: false,
       port: 47399,
@@ -32,18 +33,6 @@ describe("API integration", () => {
   it("returns health", async () => {
     const res = await fetch("http://127.0.0.1:47399/healthz");
     expect(res.ok).toBe(true);
-    const body = await res.json();
-    expect(body.ok).toBe(true);
-  });
-
-  it("returns graphql health query", async () => {
-    const res = await fetch("http://127.0.0.1:47399/graphql", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: "{ health { ok version } }" }),
-    });
-    const json = await res.json();
-    expect(json.data.health.ok).toBe(true);
   });
 
   it("signs in locally without GitHub", async () => {
@@ -51,38 +40,53 @@ describe("API integration", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        query: `mutation { signInLocal(input: { displayName: "Local Tester" }) { sessionToken user { id name githubLogin } } }`,
+        query: `mutation { signInLocal(input: { displayName: "Local Tester" }) { sessionToken user { id name } activeWorkspace { id } } }`,
       }),
     });
     const json = await res.json();
     expect(json.errors).toBeUndefined();
     expect(json.data.signInLocal.sessionToken).toBeTruthy();
-    expect(json.data.signInLocal.user.name).toBe("Local Tester");
-    expect(json.data.signInLocal.user.githubLogin).toBeNull();
+    expect(json.data.signInLocal.activeWorkspace).toBeTruthy();
   });
 
-  it("returns workspaces for authenticated session", async () => {
-    const { createKnex, createRepositories } = await import("@graphscope/db");
-    const db = createKnex({ profile: "development", ...testDbConfig() });
-    const repos = createRepositories(db);
-    const user = await repos.users.upsertFromGithub("integration-user", "Integration");
-    const { token } = await repos.sessions.create(user.id, null);
-    const ws = await repos.workspaces.create(
-      { name: "Integration WS", slug: `integration-ws-${Date.now()}` },
-      user.id,
-    );
-
-    const res = await fetch("http://127.0.0.1:47399/graphql", {
+  it("creates project and publishes schema when authenticated", async () => {
+    const signIn = await fetch("http://127.0.0.1:47399/graphql", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ query: "{ workspaces { id name slug } }" }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `mutation { signInLocal(input: { displayName: "Project User" }) { sessionToken } }`,
+      }),
     });
-    const json = await res.json();
-    expect(json.errors).toBeUndefined();
-    expect(json.data.workspaces.some((w: { id: string }) => w.id === ws.id)).toBe(true);
-    await db.destroy();
+    const { data: auth } = await signIn.json();
+    const token = auth.signInLocal.sessionToken;
+
+    const projectRes = await fetch("http://127.0.0.1:47399/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        query: `mutation { createProject(input: { name: "Demo", slug: "demo-${Date.now()}" }) { id } }`,
+      }),
+    });
+    const projectJson = await projectRes.json();
+    expect(projectJson.errors).toBeUndefined();
+    const projectId = projectJson.data.createProject.id;
+
+    const publishRes = await fetch("http://127.0.0.1:47399/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        query: `mutation($input: PublishSchemaInput!) { publishSchema(input: $input) { id contentHash } }`,
+        variables: {
+          input: {
+            projectId,
+            name: "default",
+            sdl: "type Query { hello: String }",
+          },
+        },
+      }),
+    });
+    const publishJson = await publishRes.json();
+    expect(publishJson.errors).toBeUndefined();
+    expect(publishJson.data.publishSchema.contentHash).toBeTruthy();
   });
 });

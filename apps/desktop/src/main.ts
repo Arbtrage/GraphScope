@@ -2,6 +2,8 @@ import { app, BrowserWindow } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { registerKeychainHandlers } from "./keychain.js";
+import { startNotificationWatcher } from "./notifications.js";
+import { initAutoUpdater } from "./updater.js";
 import { resolveDataDir, spawnApi, startEmbeddedPostgres, waitForHealth } from "./postgres.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -48,6 +50,9 @@ async function bootstrap() {
   console.log("Waiting for API and web…");
   await waitForHealth(API_HEALTH);
   await waitForHealth(WEB_URL.replace(/\/$/, "") + "/login", 120000);
+
+  startNotificationWatcher(dataDir);
+  initAutoUpdater();
 
   await createWindow();
 }

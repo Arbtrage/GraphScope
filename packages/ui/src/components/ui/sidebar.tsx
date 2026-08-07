@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Separator } from "@radix-ui/react-separator";
+import { Slot } from "@radix-ui/react-slot";
 import { cn } from "../../lib/utils.js";
 
 export function Sidebar({ className, children }: { className?: string; children: React.ReactNode }) {
@@ -31,22 +32,28 @@ export function SidebarNavItem({
   active,
   children,
   onClick,
+  asChild = false,
+  className,
 }: {
   active?: boolean;
   children: React.ReactNode;
   onClick?: () => void;
+  asChild?: boolean;
+  className?: string;
 }) {
+  const Comp = asChild ? Slot : "button";
   return (
-    <button
-      type="button"
+    <Comp
+      type={asChild ? undefined : "button"}
       onClick={onClick}
       className={cn(
         "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active ? "bg-muted font-medium" : "hover:bg-muted/60",
+        className,
       )}
     >
       {children}
-    </button>
+    </Comp>
   );
 }
 

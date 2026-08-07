@@ -7,7 +7,9 @@ import { loadEnv, type Env } from "@graphscope/config";
 import { createKnex, createRepositories, runMigrations } from "@graphscope/db";
 import cors from "cors";
 import express from "express";
+import depthLimit from "graphql-depth-limit";
 import { createContext, type GraphContext } from "./context.js";
+import { complexityLimitRule } from "./services/complexity-limit.js";
 import { resolvers } from "./graphql/resolvers.js";
 import { typeDefs } from "./graphql/schema.js";
 
@@ -47,6 +49,18 @@ export async function createApp(options: CreateAppOptions = {}): Promise<AppInst
   await runMigrations(db);
   const repos = createRepositories(db);
 
+  let workerStop: (() => Promise<void>) | null = null;
+  if (process.env.GRAPHSCOPE_WORKER !== "false") {
+    try {
+      const { startWorker } = await import("./jobs/worker.js");
+      const worker = await startWorker(db);
+      workerStop = worker.stop;
+      console.log("graphile-worker started");
+    } catch (err) {
+      console.warn("graphile-worker failed to start:", err);
+    }
+  }
+
   const app = express();
   let ready = true;
 
@@ -65,6 +79,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<AppInst
   const apollo = new ApolloServer<GraphContext>({
     typeDefs,
     resolvers,
+    validationRules: [depthLimit(12), complexityLimitRule(1000)],
   });
   await apollo.start();
 
@@ -88,7 +103,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<AppInst
           }
         }
 
-        return createContext({ env, repos }, { sessionToken, userId, workspaceId });
+        return createContext({ env, repos, db }, { sessionToken, userId, workspaceId });
       },
     }),
   );
@@ -116,6 +131,9 @@ export async function createApp(options: CreateAppOptions = {}): Promise<AppInst
       ready = v;
     },
     close: async () => {
+      if (workerStop) await workerStop();
+      const { closeCache } = await import("./services/cache.js");
+      await closeCache();
       if (httpServer) {
         await new Promise<void>((resolve, reject) => {
           httpServer!.close((err?: Error) => (err ? reject(err) : resolve()));

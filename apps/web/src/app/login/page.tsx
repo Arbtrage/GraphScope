@@ -1,10 +1,12 @@
 "use client";
 
-import { ApolloProvider, gql, useMutation } from "@apollo/client";
-import { Button, Input, Label } from "@graphscope/ui";
-import { useRouter } from "next/navigation";
+import { ApolloProvider, gql, useMutation, useQuery } from "@apollo/client";
+import { Button, Card, CardContent, Input, Label, Skeleton } from "@graphscope/ui";
+import { Copy } from "lucide-react";
+import { useAppRouter } from "@/components/navigation-provider";
 import { useCallback, useEffect, useState } from "react";
-import { apolloClient, setSessionToken } from "@/lib/apollo";
+import { apolloClient, getSessionToken, setSessionToken } from "@/lib/apollo";
+import { toastMutationError, toastMutationSuccess } from "@/lib/apollo-error";
 
 const START_DEVICE_FLOW = gql`
   mutation StartDeviceFlow {
@@ -44,9 +46,18 @@ const SIGN_IN_LOCAL = gql`
   }
 `;
 
+const ME = gql`
+  query MeLogin {
+    me {
+      id
+    }
+  }
+`;
+
 function LoginForm() {
-  const router = useRouter();
-  const [startFlow] = useMutation(START_DEVICE_FLOW);
+  const router = useAppRouter();
+  const { data: meData } = useQuery(ME, { skip: !getSessionToken() });
+  const [startFlow, { loading: starting }] = useMutation(START_DEVICE_FLOW);
   const [pollFlow] = useMutation(POLL_DEVICE_FLOW);
   const [signInLocal, { loading: localLoading }] = useMutation(SIGN_IN_LOCAL);
   const [displayName, setDisplayName] = useState("");
@@ -56,6 +67,10 @@ function LoginForm() {
   const [interval, setIntervalMs] = useState(5000);
   const [error, setError] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
+
+  useEffect(() => {
+    if (meData?.me) router.replace("/app");
+  }, [meData, router]);
 
   const beginLogin = async () => {
     setError(null);
@@ -80,8 +95,10 @@ function LoginForm() {
         variables: { input: { displayName: displayName.trim() } },
       });
       setSessionToken(data.signInLocal.sessionToken);
+      toastMutationSuccess("Signed in locally");
       router.replace("/app");
     } catch (err) {
+      toastMutationError(err);
       setError(err instanceof Error ? err.message : "Local sign-in failed");
     }
   };
@@ -93,6 +110,7 @@ function LoginForm() {
       if (data.githubDeviceFlowPoll) {
         setSessionToken(data.githubDeviceFlowPoll.sessionToken);
         setPolling(false);
+        toastMutationSuccess("Signed in with GitHub");
         router.replace("/app");
       }
     } catch (e) {
@@ -107,68 +125,81 @@ function LoginForm() {
     return () => window.clearInterval(id);
   }, [polling, deviceCode, interval, poll]);
 
+  const copyCode = () => {
+    if (userCode) {
+      navigator.clipboard.writeText(userCode);
+      toastMutationSuccess("Code copied");
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
-      <div className="w-full max-w-md space-y-6 rounded-lg border border-border bg-card p-8 shadow-sm">
-        <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-semibold text-primary">GraphScope</h1>
-          <p className="text-sm text-muted-foreground">Sign in to your local workspace</p>
-        </div>
-
-        <form onSubmit={continueLocally} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="display-name">Display name</Label>
-            <Input
-              id="display-name"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Alex"
-              autoComplete="name"
-              required
-              minLength={2}
-              maxLength={64}
-            />
-          </div>
-          <Button type="submit" className="w-full" variant="accent" disabled={localLoading || displayName.trim().length < 2}>
-            {localLoading ? "Signing in…" : "Continue locally"}
-          </Button>
-        </form>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-border" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">Or</span>
-          </div>
-        </div>
-
-        {!userCode ? (
-          <Button className="w-full" variant="outline" onClick={beginLogin}>
-            Sign in with GitHub
-          </Button>
-        ) : (
-          <div className="space-y-4">
+      <div className="grid w-full max-w-4xl gap-6 md:grid-cols-2">
+        <Card>
+          <CardContent className="space-y-6 p-8">
             <div className="space-y-2">
-              <Label>GitHub code</Label>
-              <Input readOnly value={userCode} className="text-center font-mono text-lg tracking-widest" />
+              <h1 className="text-2xl font-semibold text-primary">GraphScope</h1>
+              <p className="text-sm text-muted-foreground">Sign in to your local workspace</p>
             </div>
-            <Button variant="outline" className="w-full" asChild>
-              <a href={verificationUri ?? "#"} target="_blank" rel="noreferrer">
-                Open GitHub to authorize
-              </a>
-            </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              {polling ? "Waiting for authorization…" : "Enter the code on GitHub"}
+            <form onSubmit={continueLocally} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="display-name">Display name</Label>
+                <Input
+                  id="display-name"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Alex"
+                  autoComplete="name"
+                  required
+                  minLength={2}
+                  maxLength={64}
+                />
+              </div>
+              <Button type="submit" className="w-full bg-execute text-execute-foreground hover:bg-execute/90" disabled={localLoading || displayName.trim().length < 2}>
+                {localLoading ? "Signing in…" : "Continue locally"}
+              </Button>
+            </form>
+            <p className="text-xs text-muted-foreground">
+              Local sign-in keeps everything on your Mac. GitHub is optional for repo features.
             </p>
-          </div>
-        )}
+          </CardContent>
+        </Card>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
-
-        <p className="text-xs text-muted-foreground">
-          Local sign-in keeps everything on your Mac. GitHub is optional for repo features later.
-        </p>
+        <Card>
+          <CardContent className="space-y-6 p-8">
+            <div className="space-y-2">
+              <h2 className="text-lg font-medium">GitHub sign-in</h2>
+              <p className="text-sm text-muted-foreground">Optional — for GitHub repository indexing.</p>
+            </div>
+            {!userCode ? (
+              <Button className="w-full" variant="outline" onClick={beginLogin} disabled={starting}>
+                {starting ? "Starting…" : "Sign in with GitHub"}
+              </Button>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>GitHub code</Label>
+                  <div className="flex gap-2">
+                    <Input readOnly value={userCode} className="text-center font-mono text-lg tracking-widest" />
+                    <Button type="button" variant="outline" size="icon" onClick={copyCode}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <Button variant="outline" className="w-full" asChild>
+                  <a href={verificationUri ?? "#"} target="_blank" rel="noreferrer">
+                    Open GitHub to authorize
+                  </a>
+                </Button>
+                <p className="text-center text-sm text-muted-foreground">
+                  {polling ? "Waiting for authorization…" : "Enter the code on GitHub"}
+                </p>
+                {polling && <Skeleton className="h-2 w-full" />}
+              </div>
+            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
