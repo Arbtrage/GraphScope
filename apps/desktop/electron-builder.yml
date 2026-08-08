@@ -15,6 +15,7 @@ mac:
   category: public.app-category.developer-tools
   hardenedRuntime: true
   gatekeeperAssess: false
+  icon: build/icon.png
   target:
     - dmg
     - zip

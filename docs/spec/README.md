@@ -15,7 +15,7 @@
 |---|---|
 | 1 | [01-prd.md](./01-prd.md) — OSS, Postman parity, Product Hunt |
 | 2 | [02-system-design.md](./02-system-design.md) |
-| 2b | [02-local-data-engineering.md](./02-local-data-engineering.md) — PostgreSQL + Knex |
+| 2b | [07-local-data-engineering.md](./07-local-data-engineering.md) — PostgreSQL + Knex |
 | 2c | [06-design-system.md](./06-design-system.md) — shadcn/ui + GraphScope tokens |
 | 3–5 | Milestones, implementation, launch |
 

@@ -96,5 +96,5 @@ Prior v1.2 chose SQLite + raw SQL + NestJS. That diverged from common team stack
 ## Follow-ups
 
 - `database/knexfile.ts` — dev, test, embedded profiles
-- Document EXPLAIN workflow in [02-local-data-engineering.md](../spec/02-local-data-engineering.md)
+- Document EXPLAIN workflow in [07-local-data-engineering.md](../spec/07-local-data-engineering.md)
 - Portfolio checklist in [05-production-oss.md](../spec/05-production-oss.md) §2D

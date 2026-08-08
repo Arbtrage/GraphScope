@@ -68,12 +68,20 @@ export async function createApp(options: CreateAppOptions = {}): Promise<AppInst
     res.json({ ok: true });
   });
 
-  app.get("/readyz", (_req, res) => {
-    if (ready) {
-      res.json({ ok: true });
-    } else {
-      res.status(503).json({ ok: false });
+  app.get("/readyz", async (_req, res) => {
+    let postgres = false;
+    try {
+      await db.raw("select 1");
+      postgres = true;
+    } catch {
+      postgres = false;
     }
+    const migrations = postgres;
+    const worker = process.env.GRAPHSCOPE_WORKER !== "false";
+    const ok = ready && postgres;
+    const body = { ok, postgres, migrations, worker };
+    if (ok) res.json(body);
+    else res.status(503).json(body);
   });
 
   const apollo = new ApolloServer<GraphContext>({

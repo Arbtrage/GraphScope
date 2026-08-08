@@ -92,6 +92,33 @@ export class CollectionRepository {
       .orderBy("created_at", "desc");
     return rows.map(mapItem);
   }
+
+  async findItemById(id: string, workspaceId: string): Promise<CollectionItem | null> {
+    const row = await this.db("core_collection_item")
+      .where({ collection_item_id: id, workspace_id: workspaceId })
+      .first();
+    return row ? mapItem(row) : null;
+  }
+
+  async deleteItem(id: string, workspaceId: string): Promise<boolean> {
+    const n = await this.db("core_collection_item")
+      .where({ collection_item_id: id, workspace_id: workspaceId })
+      .del();
+    return n > 0;
+  }
+
+  /** Idempotent: create default named collection when workspace has none. */
+  async ensureDefault(workspaceId: string, name = "Saved requests"): Promise<Collection> {
+    const existing = await this.listForWorkspace(workspaceId);
+    if (existing[0]) return existing[0];
+    try {
+      return await this.create(workspaceId, name);
+    } catch {
+      const after = await this.listForWorkspace(workspaceId);
+      if (after[0]) return after[0];
+      throw new Error("Failed to ensure default collection");
+    }
+  }
 }
 
 export class ExecutionRepository {

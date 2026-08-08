@@ -8,7 +8,7 @@
 | Version | 1.4.0 |
 | Last updated | 2026-08-05 |
 | Primary client | macOS desktop — **local-only, zero GraphScope servers** |
-| Data guide | [02-local-data-engineering.md](./02-local-data-engineering.md) |
+| Data guide | [07-local-data-engineering.md](./07-local-data-engineering.md) |
 | Design system | [06-design-system.md](./06-design-system.md) |
 | ADRs | [0010](../adr/0010-postgresql-knex-express-stack.md), [0009](../adr/0009-open-source-apache-2.md) |
 

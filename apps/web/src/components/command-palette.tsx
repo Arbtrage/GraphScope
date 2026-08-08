@@ -12,13 +12,16 @@ import {
 } from "@graphscope/ui";
 import {
   BookMarked,
+  Code2,
   FolderKanban,
   GitBranch,
+  History,
   Home,
   Layers,
   Play,
   Search,
   Type,
+  Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAppRouter } from "@/components/navigation-provider";
@@ -67,8 +70,11 @@ const QUICK_NAV = [
   { label: "Home", href: "/app", icon: <Home className="mr-2 h-4 w-4" /> },
   { label: "Projects", href: "/app/projects", icon: <FolderKanban className="mr-2 h-4 w-4" /> },
   { label: "Execute", href: "/app/execute", icon: <Play className="mr-2 h-4 w-4" /> },
+  { label: "Environments", href: "/app/environments", icon: <Zap className="mr-2 h-4 w-4" /> },
   { label: "Search", href: "/app/search", icon: <Search className="mr-2 h-4 w-4" /> },
   { label: "Schema Explorer", href: "/app/schema/explore", icon: <Layers className="mr-2 h-4 w-4" /> },
+  { label: "Operations", href: "/app/operations", icon: <Code2 className="mr-2 h-4 w-4" /> },
+  { label: "History", href: "/app/history", icon: <History className="mr-2 h-4 w-4" /> },
 ];
 
 function useDebouncedValue(value: string, delayMs: number): string {

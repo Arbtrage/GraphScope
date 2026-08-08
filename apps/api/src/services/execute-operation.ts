@@ -5,18 +5,61 @@ import { getSecret } from "./secrets.js";
 
 const TIMEOUT_MS = 30_000;
 const MAX_BODY = 5 * 1024 * 1024;
+const MAX_OVERRIDE_HEADERS = 40;
+
+const FORBIDDEN_HEADERS = new Set([
+  "connection",
+  "content-length",
+  "host",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade",
+]);
 
 function redactPreview(body: string): string {
   if (body.length <= 2000) return body;
   return body.slice(0, 2000) + "…";
 }
 
-function substituteSecrets(text: string, secrets: Record<string, string>): string {
+export function substituteSecrets(text: string, secrets: Record<string, string>): string {
   let out = text;
   for (const [name, value] of Object.entries(secrets)) {
     out = out.replaceAll(`{{${name}}}`, value);
   }
   return out;
+}
+
+/** Env headers first, then request overrides (request wins). Secrets substituted in both. */
+export function mergeExecuteHeaders(input: {
+  envHeaders?: Record<string, string> | null;
+  requestHeaders?: Record<string, string> | null;
+  secrets: Record<string, string>;
+}): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(input.envHeaders ?? {}),
+  };
+
+  const overrides = input.requestHeaders ?? {};
+  let overrideCount = 0;
+  for (const [rawKey, rawValue] of Object.entries(overrides)) {
+    const key = rawKey.trim();
+    if (!key) continue;
+    if (FORBIDDEN_HEADERS.has(key.toLowerCase())) continue;
+    if (overrideCount >= MAX_OVERRIDE_HEADERS) break;
+    if (typeof rawValue !== "string") continue;
+    headers[key] = rawValue;
+    overrideCount += 1;
+  }
+
+  for (const [k, v] of Object.entries(headers)) {
+    headers[k] = substituteSecrets(v, input.secrets);
+  }
+  return headers;
 }
 
 export interface ExecuteInput {
@@ -25,6 +68,7 @@ export interface ExecuteInput {
   queryContent: string;
   variablesJson: string;
   operationId?: string | null;
+  requestHeaders?: Record<string, string> | null;
 }
 
 export interface ExecuteResult {
@@ -52,15 +96,12 @@ export async function executeOperation(
     if (val) secrets[meta.name] = val;
   }
 
-  let endpointUrl = substituteSecrets(env.endpointUrl, secrets);
-  const headers: Record<string, string> = { "Content-Type": "application/json", ...env.headers };
-  for (const [k, v] of Object.entries(headers)) {
-    headers[k] = substituteSecrets(v, secrets);
-  }
-
-  if (env.isProduction) {
-    // production execute allowed for all authenticated roles in v1 local app
-  }
+  const endpointUrl = substituteSecrets(env.endpointUrl, secrets);
+  const headers = mergeExecuteHeaders({
+    envHeaders: env.headers,
+    requestHeaders: input.requestHeaders,
+    secrets,
+  });
 
   try {
     await assertSafeUrl(endpointUrl);
@@ -128,4 +169,14 @@ export async function executeOperation(
       responseBody: "",
     };
   }
+}
+
+/** Resolve query text: non-empty adhoc wins over stored operation (draft edit). */
+export function resolveExecuteQueryContent(input: {
+  adhocQuery?: string | null;
+  operationContent?: string | null;
+}): string {
+  const adhoc = input.adhocQuery?.trim() ?? "";
+  if (adhoc) return input.adhocQuery ?? adhoc;
+  return input.operationContent ?? "";
 }

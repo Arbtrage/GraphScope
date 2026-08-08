@@ -1,18 +1,12 @@
 import type { Knex } from "knex";
+import type {
+  AiInvocationKind,
+  AiInvocationStatus,
+  AiRedactionMode,
+  AiSettings,
+} from "@graphscope/shared-types";
 
-export type AiRedactionMode = "STRICT" | "STANDARD" | "FULL";
-export type AiInvocationKind = "EXPLAIN" | "GENERATE";
-export type AiInvocationStatus = "SUCCESS" | "ERROR" | "RATE_LIMITED" | "BUDGET_EXCEEDED";
-
-export interface AiSettings {
-  id: string;
-  workspaceId: string;
-  redactionMode: AiRedactionMode;
-  enabled: boolean;
-  monthlyTokenBudget: number;
-  tokensUsed: number;
-  hasOpenAiKey: boolean;
-}
+export type { AiRedactionMode, AiInvocationKind, AiInvocationStatus, AiSettings };
 
 export interface AiInvocationRecord {
   id: string;

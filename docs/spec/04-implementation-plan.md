@@ -38,7 +38,7 @@
 | `scripts/migrate.ts` | CLI migrate wrapper |
 | `scripts/analytics/*.ts` | Mart rollup scripts |
 
-Migrations inventory: see [02-local-data-engineering.md](./02-local-data-engineering.md).
+Migrations inventory: see [07-local-data-engineering.md](./07-local-data-engineering.md).
 
 ---
 

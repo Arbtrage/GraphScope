@@ -1,12 +1,7 @@
 import type { Knex } from "knex";
+import type { SearchResult, SearchResultKind } from "@graphscope/shared-types";
 
-export type SearchResultKind =
-  | "OPERATION"
-  | "TYPE"
-  | "FIELD"
-  | "REPOSITORY"
-  | "COLLECTION"
-  | "PROJECT";
+export type { SearchResult, SearchResultKind };
 
 export interface SearchDocumentInput {
   kind: SearchResultKind;
@@ -15,15 +10,6 @@ export interface SearchDocumentInput {
   subtitle?: string | null;
   href: string;
   searchText: string;
-}
-
-export interface SearchResult {
-  kind: SearchResultKind;
-  id: string;
-  title: string;
-  subtitle: string | null;
-  href: string;
-  score: number;
 }
 
 export class SearchRepository {

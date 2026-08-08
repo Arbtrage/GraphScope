@@ -1,9 +1,23 @@
 import { GraphQLError } from "graphql";
 import type { GraphContext } from "../../context.js";
 import { requireRole, requireWorkspace } from "../../auth/rbac.js";
-import { executeOperation } from "../../services/execute-operation.js";
+import {
+  executeOperation,
+  resolveExecuteQueryContent,
+} from "../../services/execute-operation.js";
 import { deleteSecret, setSecret } from "../../services/secrets.js";
 import { enqueueAnalyzeOp } from "../../jobs/tasks/analytics-analyze-op.js";
+
+const DEFAULT_COLLECTION_NAME = "Saved requests";
+
+function asStringMap(value: unknown): Record<string, string> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v === "string") out[k] = v;
+  }
+  return out;
+}
 
 export const resolvers = {
   Query: {
@@ -31,6 +45,7 @@ export const resolvers = {
 
     collections: async (_: unknown, __: unknown, ctx: GraphContext) => {
       const workspaceId = await requireWorkspace(ctx);
+      await ctx.repos.collections.ensureDefault(workspaceId, DEFAULT_COLLECTION_NAME);
       return ctx.repos.collections.listForWorkspace(workspaceId);
     },
 
@@ -39,6 +54,13 @@ export const resolvers = {
       const collection = await ctx.repos.collections.findById(args.id, workspaceId);
       if (!collection) throw new GraphQLError("Collection not found", { extensions: { code: "NOT_FOUND" } });
       return collection;
+    },
+
+    collectionItem: async (_: unknown, args: { id: string }, ctx: GraphContext) => {
+      const workspaceId = await requireWorkspace(ctx);
+      const item = await ctx.repos.collections.findItemById(args.id, workspaceId);
+      if (!item) throw new GraphQLError("Collection item not found", { extensions: { code: "NOT_FOUND" } });
+      return item;
     },
   },
 
@@ -122,27 +144,34 @@ export const resolvers = {
           operationId?: string;
           adhocQuery?: string;
           variables?: Record<string, unknown>;
+          headers?: Record<string, string>;
         };
       },
       ctx: GraphContext,
     ) => {
       const workspaceId = await requireRole(ctx, "RUNNER");
-      let queryContent = args.input.adhocQuery ?? "";
+      let operationContent: string | null = null;
       if (args.input.operationId) {
         const op = await ctx.repos.operations.findById(args.input.operationId, workspaceId);
         if (!op) throw new GraphQLError("Operation not found", { extensions: { code: "NOT_FOUND" } });
-        queryContent = op.content;
+        operationContent = op.content;
       }
+      const queryContent = resolveExecuteQueryContent({
+        adhocQuery: args.input.adhocQuery,
+        operationContent,
+      });
       if (!queryContent.trim()) {
         throw new GraphQLError("Query required", { extensions: { code: "VALIDATION_ERROR" } });
       }
       const variablesJson = JSON.stringify(args.input.variables ?? {});
+      const requestHeaders = asStringMap(args.input.headers);
       const result = await executeOperation(ctx.repos, {
         workspaceId,
         environmentId: args.input.environmentId,
         queryContent,
         variablesJson,
         operationId: args.input.operationId ?? null,
+        requestHeaders,
       });
       const execution = await ctx.repos.executions.create(workspaceId, {
         operationId: args.input.operationId ?? null,
@@ -177,6 +206,11 @@ export const resolvers = {
     deleteCollection: async (_: unknown, args: { id: string }, ctx: GraphContext) => {
       const workspaceId = await requireRole(ctx, "EDITOR");
       return ctx.repos.collections.delete(args.id, workspaceId);
+    },
+
+    deleteCollectionItem: async (_: unknown, args: { id: string }, ctx: GraphContext) => {
+      const workspaceId = await requireRole(ctx, "EDITOR");
+      return ctx.repos.collections.deleteItem(args.id, workspaceId);
     },
 
     saveToCollection: async (

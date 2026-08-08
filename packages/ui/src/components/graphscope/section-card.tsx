@@ -18,11 +18,11 @@ export function SectionCard({
   className?: string;
 }) {
   return (
-    <Card className={cn(className)}>
+    <Card className={cn("border border-border/60", className)}>
       {(title || description || action) && (
-        <CardHeader className="flex flex-row items-start justify-between space-y-0">
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
           <div className="space-y-1">
-            {title && <CardTitle className="text-base">{title}</CardTitle>}
+            {title && <CardTitle className="text-base font-medium">{title}</CardTitle>}
             {description && <CardDescription>{description}</CardDescription>}
           </div>
           {action}

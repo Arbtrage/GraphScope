@@ -1,4 +1,5 @@
 export { cn } from "./lib/utils.js";
+export { ThemeProvider } from "./components/theme-provider.js";
 export { Button, buttonVariants } from "./components/ui/button.js";
 export type { ButtonProps } from "./components/ui/button.js";
 export { Input, Label } from "./components/ui/input.js";
@@ -62,8 +63,8 @@ export { StatusBadge } from "./components/graphscope/status-badge.js";
 export { SectionCard } from "./components/graphscope/section-card.js";
 export { WorkspaceSwitcher } from "./components/graphscope/workspace-switcher.js";
 export type { WorkspaceOption, WorkspaceSwitcherProps } from "./components/graphscope/workspace-switcher.js";
-export { ProjectList, PublishDialog, SchemaVersionTable, SchemaDiffViewer, CheckBadge } from "./components/graphscope/catalog.js";
-export { OperationTable, RepoList, EnableRepoForm, FilterBar, SourceMapPanel, SyncStatusChip } from "./components/graphscope/discovery.js";
+export { ProjectList, PublishDialog, SchemaVersionTable, SchemaDiffViewer, CheckBadge } from "./components/graphscope/catalog/index.js";
+export { OperationTable, RepoList, EnableRepoForm, FilterBar, SourceMapPanel, SyncStatusChip } from "./components/graphscope/discovery/index.js";
 export {
   OperationRunner,
   EnvPicker,
@@ -74,9 +75,9 @@ export {
   HeadersEditor,
   SecretForm,
   VariablesForm,
-} from "./components/graphscope/execution.js";
+} from "./components/graphscope/execution/index.js";
 export { AiSidePanel, AiModeSelect, AiSettingsForm } from "./components/graphscope/ai-side-panel.js";
-export type { AiSidePanelProps, AiRedactionMode as UiAiRedactionMode, SchemaCitation as UiSchemaCitation } from "./components/graphscope/ai-side-panel.js";
+export type { AiSidePanelProps, AiRedactionMode, SchemaCitation } from "./components/graphscope/ai-side-panel.js";
 export { SchemaVoyager } from "./components/graphscope/schema-voyager.js";
 export type { SchemaVoyagerProps } from "./components/graphscope/schema-voyager.js";
 export { FindingsList, FindingSeverityBadge, LatencyChart, CompositionBadge } from "./components/graphscope/analytics.js";

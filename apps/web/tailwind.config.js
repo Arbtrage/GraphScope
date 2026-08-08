@@ -74,7 +74,12 @@ module.exports = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+      },
+      boxShadow: {
+        "tinted-sm": "var(--shadow-sm)",
+        "tinted-md": "var(--shadow-md)",
       },
       keyframes: {
         "navigation-progress": {

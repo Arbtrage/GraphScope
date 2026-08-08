@@ -1,8 +1,9 @@
 import { GraphQLError } from "graphql";
 import type { GraphContext } from "../../context.js";
-import { requireAuth, requireWorkspace } from "../../auth/rbac.js";
+import { requireAuth, requireRole, requireWorkspace } from "../../auth/rbac.js";
 import { clearDeviceFlow, getDeviceFlow, storeDeviceFlow } from "../../context.js";
 import { createAuthSession } from "../../services/auth-session.js";
+import { bootstrapWorkspace, computeOnboardingStatus } from "../../services/onboarding.js";
 import { createGithubService } from "../../services/github-device-flow.js";
 import { setSecret } from "../../services/secrets.js";
 
@@ -35,6 +36,11 @@ export const resolvers = {
       }
       return workspace;
     },
+
+    onboardingStatus: async (_: unknown, __: unknown, ctx: GraphContext) => {
+      const workspaceId = await requireWorkspace(ctx);
+      return computeOnboardingStatus(ctx, workspaceId);
+    },
   },
 
   Mutation: {
@@ -63,6 +69,28 @@ export const resolvers = {
       }
       await ctx.repos.sessions.setActiveWorkspace(sessionToken, workspace.id);
       return workspace;
+    },
+
+    bootstrapWorkspace: async (
+      _: unknown,
+      args: {
+        input?: {
+          workspaceName?: string | null;
+          projectName?: string | null;
+          createDefaultEnvironment?: boolean | null;
+        } | null;
+      },
+      ctx: GraphContext,
+    ) => {
+      const { userId } = requireAuth(ctx);
+      const workspaceId = await requireRole(ctx, "EDITOR");
+      try {
+        return await bootstrapWorkspace(ctx, workspaceId, userId, args.input ?? {});
+      } catch (err) {
+        throw new GraphQLError(err instanceof Error ? err.message : "Bootstrap failed", {
+          extensions: { code: "BOOTSTRAP_FAILED" },
+        });
+      }
     },
 
     githubDeviceFlowStart: async (_: unknown, __: unknown, ctx: GraphContext) => {

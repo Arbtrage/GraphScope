@@ -1,11 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { getDefaultDataDir } from "@graphscope/config";
-import { Notification } from "electron";
+import { BrowserWindow, Notification } from "electron";
 
 const seen = new Set<string>();
 
-export function startNotificationWatcher(dataDir?: string): () => void {
+export function startNotificationWatcher(
+  dataDir?: string,
+  getWindow?: () => BrowserWindow | null,
+): () => void {
   const base = dataDir ?? process.env.GRAPHSCOPE_DATA_DIR ?? getDefaultDataDir();
   const notifyDir = path.join(base, "notifications");
 
@@ -23,10 +26,19 @@ export function startNotificationWatcher(dataDir?: string): () => void {
         };
         seen.add(file);
         if (Notification.isSupported()) {
-          new Notification({
+          const n = new Notification({
             title: `GraphScope — ${event.jobType ?? "Job"}`,
             body: `${event.status ?? "update"}: ${event.message ?? ""}`,
-          }).show();
+          });
+          n.on("click", () => {
+            const win = getWindow?.();
+            if (win) {
+              win.show();
+              win.focus();
+              win.webContents.send("graphscope:open-route", "/app/jobs");
+            }
+          });
+          n.show();
         }
       }
     } catch {

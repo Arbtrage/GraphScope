@@ -1,30 +1,17 @@
 import type { Knex } from "knex";
+import type {
+  FindingSeverity,
+  OperationFinding,
+  WorkspaceDashboard,
+} from "@graphscope/shared-types";
 
-export type FindingSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-
-export interface OperationFinding {
-  id: string;
-  operationId: string;
-  workspaceId: string;
-  ruleId: string;
-  severity: FindingSeverity;
-  message: string;
-  path: string | null;
-}
+export type { FindingSeverity, OperationFinding, WorkspaceDashboard };
 
 export interface FindingInput {
   ruleId: string;
   severity: FindingSeverity;
   message: string;
   path?: string | null;
-}
-
-export interface WorkspaceDashboard {
-  operationCount: number;
-  openHighFindings: number;
-  checksFailed7d: number;
-  execP50Ms: number | null;
-  execP95Ms: number | null;
 }
 
 function mapFinding(row: Record<string, unknown>): OperationFinding {

@@ -16,15 +16,11 @@ import {
 } from "../ui/sheet.js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs.js";
 import { Textarea } from "../ui/textarea.js";
+import type { AiRedactionMode, SchemaCitation } from "@graphscope/shared-types";
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
 
-export type AiRedactionMode = "STRICT" | "STANDARD" | "FULL";
-
-export interface SchemaCitation {
-  typeName: string;
-  fieldName?: string | null;
-}
+export type { AiRedactionMode, SchemaCitation };
 
 export interface AiSidePanelProps {
   open?: boolean;

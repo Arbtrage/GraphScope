@@ -7,7 +7,7 @@ export function Sidebar({ className, children }: { className?: string; children:
   return (
     <aside
       className={cn(
-        "flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
+        "flex h-full w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
         className,
       )}
     >
@@ -25,7 +25,7 @@ export function SidebarContent({ className, children }: { className?: string; ch
 }
 
 export function SidebarNav({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <nav className={cn("flex flex-col gap-1", className)}>{children}</nav>;
+  return <nav className={cn("flex flex-col gap-0.5", className)}>{children}</nav>;
 }
 
 export function SidebarNavItem({
@@ -47,8 +47,10 @@ export function SidebarNavItem({
       type={asChild ? undefined : "button"}
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        active ? "bg-muted font-medium" : "hover:bg-muted/60",
+        "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-[colors,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+        active
+          ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground shadow-tinted-sm"
+          : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
         className,
       )}
     >

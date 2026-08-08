@@ -29,6 +29,7 @@ export interface AuthPayload {
   sessionToken: string;
   user: User;
   activeWorkspace: Workspace | null;
+  onboardingStatus?: OnboardingStatus | null;
 }
 
 export interface CreateWorkspaceInput {
@@ -188,4 +189,85 @@ export interface Job {
   attempts?: number;
   lastError?: string | null;
   lockedAt?: string | null;
+}
+
+/** Onboarding / first-run checklist */
+export type OnboardingNextStep =
+  | "CREATE_PROJECT"
+  | "CONNECT_REPO"
+  | "PUBLISH_SCHEMA"
+  | "ADD_ENVIRONMENT"
+  | "RUN_QUERY"
+  | "DONE";
+
+export interface OnboardingStatus {
+  hasProject: boolean;
+  hasRepository: boolean;
+  hasPublishedSchema: boolean;
+  hasEnvironment: boolean;
+  hasExecution: boolean;
+  nextStep: OnboardingNextStep;
+  projectCount: number;
+  environmentCount: number;
+  operationCount: number;
+  lastExecutionAt: string | null;
+}
+
+/** AI */
+export type AiRedactionMode = "STRICT" | "STANDARD" | "FULL";
+export type AiInvocationKind = "EXPLAIN" | "GENERATE";
+export type AiInvocationStatus = "SUCCESS" | "ERROR" | "RATE_LIMITED" | "BUDGET_EXCEEDED";
+
+export interface SchemaCitation {
+  typeName: string;
+  fieldName?: string | null;
+}
+
+export interface AiSettings {
+  id: string;
+  workspaceId: string;
+  redactionMode: AiRedactionMode;
+  enabled: boolean;
+  monthlyTokenBudget: number;
+  tokensUsed: number;
+  hasOpenAiKey: boolean;
+}
+
+/** Search */
+export type SearchResultKind =
+  | "OPERATION"
+  | "TYPE"
+  | "FIELD"
+  | "REPOSITORY"
+  | "COLLECTION"
+  | "PROJECT";
+
+export interface SearchResult {
+  kind: SearchResultKind;
+  id: string;
+  title: string;
+  subtitle: string | null;
+  href: string;
+  score: number;
+}
+
+/** Analytics */
+export type FindingSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+export interface OperationFinding {
+  id: string;
+  operationId: string;
+  workspaceId: string;
+  ruleId: string;
+  severity: FindingSeverity;
+  message: string;
+  path: string | null;
+}
+
+export interface WorkspaceDashboard {
+  operationCount: number;
+  openHighFindings: number;
+  checksFailed7d: number;
+  execP50Ms: number | null;
+  execP95Ms: number | null;
 }

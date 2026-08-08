@@ -389,7 +389,7 @@ Stories are prioritized **P0 (MVP)**, **P1 (post-MVP / stretch in v1.x)**, **P2 
 - **Migrations & queries:** Knex 3 (PostgreSQL dialect)
 - **Optional:** External local Postgres URL in Settings (power users)
 - **Optional:** Local Redis for SDL/session cache
-- Layered tables: `stg_`, `core_`, `mart_`, `audit_` per [02-local-data-engineering.md](./02-local-data-engineering.md)
+- Layered tables: `stg_`, `core_`, `mart_`, `audit_` per [07-local-data-engineering.md](./07-local-data-engineering.md)
 - Analytics scripts in `scripts/analytics/` using Knex
 
 ### FR-VIZ — Visualization

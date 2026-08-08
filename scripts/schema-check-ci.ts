@@ -4,7 +4,7 @@
  * Usage: pnpm schema:check:ci -- old.graphql new.graphql
  */
 import fs from "node:fs/promises";
-import { compareSchemas } from "../apps/api/src/services/schema-check.js";
+import { compareSchemas } from "@graphscope/schema-tools";
 
 async function main() {
   const args = process.argv.slice(2).filter((a) => a !== "--");
@@ -22,7 +22,9 @@ async function main() {
     process.exit(0);
   }
 
-  console.log(`::error file=${newPath},title=Schema check (${result.result})::breaking=${result.breakingCount} dangerous=${result.dangerousCount}`);
+  console.log(
+    `::error file=${newPath},title=Schema check (${result.result})::breaking=${result.breakingCount} dangerous=${result.dangerousCount}`,
+  );
   process.exit(1);
 }
 

@@ -4,7 +4,7 @@ import { requireAuth, requireRole, requireWorkspace } from "../../auth/rbac.js";
 import { explainOperation } from "../../services/ai/explain.js";
 import { generateOperation } from "../../services/ai/generate.js";
 import { hasOpenAiKey, setOpenAiKey } from "../../services/secrets.js";
-import type { AiRedactionMode } from "@graphscope/db";
+import type { AiRedactionMode } from "@graphscope/shared-types";
 
 export const resolvers = {
   Query: {

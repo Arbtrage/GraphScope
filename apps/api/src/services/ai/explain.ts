@@ -1,3 +1,4 @@
+import type { SchemaCitation } from "@graphscope/shared-types";
 import type { Repositories } from "@graphscope/db";
 import { readSdlFile } from "../schema-publish.js";
 import { getOpenAiKey } from "../secrets.js";
@@ -18,7 +19,7 @@ export interface ExplainOperationInput {
 
 export interface AiExplanationResult {
   markdown: string;
-  citations: Array<{ typeName: string; fieldName: string | null }>;
+  citations: SchemaCitation[];
   usage: { promptTokens: number; completionTokens: number };
 }
 

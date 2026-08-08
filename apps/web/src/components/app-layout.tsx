@@ -19,11 +19,13 @@ import {
 import {
   BarChart3,
   BookMarked,
+  Code2,
   FolderKanban,
   History,
   Home,
   Layers,
   ListTodo,
+  Monitor,
   Moon,
   Play,
   Search,
@@ -35,6 +37,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useState } from "react";
 import { apolloClient, getSessionToken, setSessionToken } from "@/lib/apollo";
+import {
+  ENV_STORAGE_KEY,
+  setActiveEnvironmentId,
+  subscribeActiveEnvironment,
+} from "@/lib/active-environment";
 import { useGraphMutation } from "@/hooks/use-graph-mutation";
 import { NavLink } from "@/components/nav-link";
 import { HoneycombLoader } from "@/components/honeycomb-loader";
@@ -142,43 +149,74 @@ const SAVE_NOTIFY_WEBHOOK = gql`
   }
 `;
 
-const ENV_STORAGE_KEY = "graphscope-active-env";
-
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Workspace",
+    label: "Primary",
     items: [
       { label: "Home", href: "/app", icon: <Home className="h-4 w-4" /> },
       { label: "Projects", href: "/app/projects", icon: <FolderKanban className="h-4 w-4" /> },
-      { label: "Schema Explorer", href: "/app/schema/explore", icon: <Layers className="h-4 w-4" /> },
+      { label: "Execute", href: "/app/execute", icon: <Play className="h-4 w-4" /> },
+      { label: "Environments", href: "/app/environments", icon: <Zap className="h-4 w-4" /> },
     ],
   },
   {
-    label: "Run",
+    label: "Discover",
     items: [
-      { label: "Execute", href: "/app/execute", icon: <Play className="h-4 w-4" /> },
-      { label: "Environments", href: "/app/environments", icon: <Zap className="h-4 w-4" /> },
+      { label: "Schema Explorer", href: "/app/schema/explore", icon: <Layers className="h-4 w-4" /> },
+      { label: "Operations", href: "/app/operations", icon: <Code2 className="h-4 w-4" /> },
+      { label: "Search", href: "/app/search", icon: <Search className="h-4 w-4" /> },
+    ],
+  },
+  {
+    label: "Library",
+    items: [
+      { label: "Collections", href: "/app/collections", icon: <BookMarked className="h-4 w-4" /> },
       { label: "History", href: "/app/history", icon: <History className="h-4 w-4" /> },
     ],
   },
   {
-    label: "Organize",
+    label: "System",
     items: [
-      { label: "Collections", href: "/app/collections", icon: <BookMarked className="h-4 w-4" /> },
-      { label: "Operations", href: "/app/operations", icon: <Search className="h-4 w-4" /> },
       { label: "Analytics", href: "/app/analytics", icon: <BarChart3 className="h-4 w-4" /> },
       { label: "Jobs", href: "/app/jobs", icon: <ListTodo className="h-4 w-4" /> },
     ],
   },
 ];
 
-function ThemeToggle() {
+function ThemeMenuItems() {
   const { theme, setTheme } = useTheme();
+  const items = [
+    { value: "dark", label: "Dark", icon: Moon },
+    { value: "light", label: "Light", icon: Sun },
+    { value: "system", label: "System", icon: Monitor },
+  ] as const;
   return (
-    <DropdownMenuItem onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-      {theme === "dark" ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
-      Toggle theme
-    </DropdownMenuItem>
+    <>
+      <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Theme</DropdownMenuLabel>
+      {items.map(({ value, label, icon: Icon }) => (
+        <DropdownMenuItem key={value} onClick={() => setTheme(value)}>
+          <Icon className="mr-2 h-4 w-4" />
+          {label}
+          {theme === value ? <span className="ml-auto text-xs text-primary">Active</span> : null}
+        </DropdownMenuItem>
+      ))}
+    </>
+  );
+}
+
+function HeaderThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-9 w-9"
+      aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+    >
+      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </Button>
   );
 }
 
@@ -210,18 +248,21 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     if (stored) setActiveEnvId(stored);
   }, []);
 
+  const handleEnvChange = useCallback((id: string) => {
+    setActiveEnvId(id);
+    setActiveEnvironmentId(id);
+  }, []);
+
+  useEffect(() => {
+    return subscribeActiveEnvironment((id) => setActiveEnvId(id));
+  }, []);
+
   useEffect(() => {
     const envs = data?.environments ?? [];
     if (envs.length && !activeEnvId) {
-      setActiveEnvId(envs[0].id);
-      localStorage.setItem(ENV_STORAGE_KEY, envs[0].id);
+      handleEnvChange(envs[0].id);
     }
-  }, [data?.environments, activeEnvId]);
-
-  const handleEnvChange = useCallback((id: string) => {
-    setActiveEnvId(id);
-    localStorage.setItem(ENV_STORAGE_KEY, id);
-  }, []);
+  }, [data?.environments, activeEnvId, handleEnvChange]);
 
   const refreshWorkspaceContext = useCallback(async () => {
     await apolloClient.refetchQueries({ include: "active" });
@@ -264,7 +305,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
+      <div className="flex h-dvh min-h-dvh items-center justify-center bg-background">
         <HoneycombLoader />
       </div>
     );
@@ -282,12 +323,16 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     })),
   }));
 
+  const fullBleed =
+    pathname.startsWith("/app/execute") || pathname.startsWith("/app/schema/explore");
+
   return (
     <>
       <AppShell
+        fullBleed={fullBleed}
         navGroups={navGroups}
-        renderLink={({ href, children: linkChildren }) => (
-          <NavLink href={href} className="block">
+        renderLink={({ href, className, children: linkChildren }) => (
+          <NavLink href={href} className={className ?? "block"}>
             {linkChildren}
           </NavLink>
         )}
@@ -310,6 +355,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
               <Search className="mr-1 h-4 w-4" />
               ⌘K
             </Button>
+            <HeaderThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm">
@@ -320,7 +366,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>{data.me.githubLogin ?? data.me.name}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <ThemeToggle />
+                <ThemeMenuItems />
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">GitHub PAT</DropdownMenuLabel>
                 <div className="px-2 pb-2">
@@ -408,7 +454,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function getActiveEnvironmentId(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(ENV_STORAGE_KEY);
-}
+export {
+  getActiveEnvironmentId,
+  setActiveEnvironmentId,
+  subscribeActiveEnvironment,
+} from "@/lib/active-environment";

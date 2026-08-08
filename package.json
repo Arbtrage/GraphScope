@@ -16,17 +16,22 @@
     "api:dev": "pnpm --filter @graphscope/db build && pnpm --filter @graphscope/api dev",
     "web:dev": "pnpm --filter @graphscope/web dev",
     "desktop:dev": "concurrently -k \"pnpm web:dev\" \"pnpm --filter @graphscope/desktop dev\"",
-    "stack:dev": "concurrently -k \"pnpm api:dev\" \"pnpm web:dev\""
+    "stack:dev": "concurrently -k \"pnpm api:dev\" \"pnpm web:dev\"",
+    "landing:dev": "pnpm --filter @graphscope/landing dev"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@graphscope/db": "workspace:*",
+    "@graphscope/schema-tools": "workspace:*",
     "@types/node": "^22.10.2",
     "concurrently": "^9.1.0",
     "eslint": "^9.17.0",
+    "globals": "^17.9.0",
     "prettier": "^3.4.2",
     "tsx": "^4.19.2",
     "turbo": "^2.3.3",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.66.0",
     "wait-on": "^8.0.1"
   },
   "pnpm": {

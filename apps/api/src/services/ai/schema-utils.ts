@@ -1,10 +1,7 @@
 import { buildSchema, parse, validate, visit, type DocumentNode } from "graphql";
-import type { AiRedactionMode } from "@graphscope/db";
+import type { AiRedactionMode, SchemaCitation } from "@graphscope/shared-types";
 
-export interface SchemaCitation {
-  typeName: string;
-  fieldName: string | null;
-}
+export type { SchemaCitation };
 
 const SECRET_PATTERN = /(?:api[_-]?key|token|secret|password|authorization|bearer)\s*[:=]\s*\S+/gi;
 

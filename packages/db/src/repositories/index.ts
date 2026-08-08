@@ -138,6 +138,20 @@ export class WorkspaceRepository {
     return row ? mapWorkspace(row) : null;
   }
 
+  async update(
+    workspaceId: string,
+    userId: string,
+    patch: { name?: string; slug?: string },
+  ): Promise<Workspace | null> {
+    const existing = await this.findByIdForUser(workspaceId, userId);
+    if (!existing) return null;
+    const update: Record<string, unknown> = { updated_at: this.db.fn.now() };
+    if (patch.name !== undefined) update.name = patch.name;
+    if (patch.slug !== undefined) update.slug = patch.slug;
+    const [row] = await this.db("core_workspace").where({ workspace_id: workspaceId }).update(update).returning("*");
+    return row ? mapWorkspace(row) : null;
+  }
+
   async userHasAccess(workspaceId: string, userId: string): Promise<boolean> {
     const row = await this.db("core_membership")
       .where({ workspace_id: workspaceId, user_id: userId })

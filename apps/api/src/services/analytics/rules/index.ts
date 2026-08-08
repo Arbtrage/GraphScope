@@ -1,6 +1,7 @@
 import { parse, visit, type DocumentNode, type FieldNode } from "graphql";
+import type { FindingSeverity } from "@graphscope/shared-types";
 
-export type FindingSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type { FindingSeverity };
 
 export interface RuleFinding {
   ruleId: string;
