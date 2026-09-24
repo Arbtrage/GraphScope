@@ -20,12 +20,12 @@ asar: true
 npmRebuild: false
 nodeGypRebuild: false
 electronVersion: 33.4.11
-# Native PG binaries must be on disk; runtime also rewrites asar→asar.unpacked paths.
+# Only unpack native binaries. Unpacking the embedded-postgres JS package
+# breaks Node resolution of its dependency `pg` (still inside the asar).
 asarUnpack:
   - "**/*.node"
-  - "**/embedded-postgres/**"
-  - "**/@embedded-postgres/**"
-  - "**/keytar/**"
+  - "**/node_modules/@embedded-postgres/**/native/**"
+  - "**/node_modules/keytar/**"
 
 extraResources:
   - from: resources/web
