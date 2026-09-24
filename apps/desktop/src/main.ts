@@ -1,8 +1,12 @@
 import { BrowserWindow, app, dialog } from "electron";
+import { patchAsarFsForNatives } from "./asar-fs-patch.js";
 import { bootstrap } from "./main/bootstrap.js";
 import { handleDeepLink } from "./main/deep-link.js";
 import { createWindow } from "./main/window.js";
 import { PROTOCOL, runtime } from "./main/runtime.js";
+
+// Before any embedded-postgres import — rewrite asar paths for native chmod/exec.
+patchAsarFsForNatives();
 
 app.setName("GraphScope");
 if (process.platform === "win32") {

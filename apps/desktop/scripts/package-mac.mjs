@@ -6,8 +6,9 @@
  * 3. electron-builder --mac against the pack
  */
 import { createRequire } from "node:module";
-import { spawnSync } from "node:child_process";
+import { spawnSync, execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -69,20 +70,34 @@ async function main() {
     throw new Error("electron-builder finished but no .dmg/.zip artifacts were produced");
   }
 
-  // Sanity: PG native binary must not live only inside app.asar (chmod fails).
-  const appRoot = path.join(packRelease, `mac${process.arch === "arm64" ? "-arm64" : ""}`, "GraphScope.app");
-  const unpackedHint = path.join(
-    appRoot,
-    "Contents/Resources/app.asar.unpacked/node_modules/@embedded-postgres",
-  );
+  // Sanity: @embedded-postgres natives must be unpacked (chmod fails inside asar).
+  const archSuffix = process.arch === "arm64" ? "-arm64" : process.arch === "x64" ? "" : `-${process.arch}`;
+  const appRoot = path.join(packRelease, `mac${archSuffix}`, "GraphScope.app");
+  let postgresBin = "";
   try {
-    await fs.access(unpackedHint);
-    console.log("OK: @embedded-postgres unpacked from asar");
+    postgresBin =
+      execFileSync(
+        "find",
+        [path.join(appRoot, "Contents/Resources"), "-path", "*app.asar.unpacked*native/bin/postgres", "-type", "f"],
+        { encoding: "utf8" },
+      )
+        .trim()
+        .split("\n")
+        .filter(Boolean)[0] ?? "";
   } catch {
-    console.warn(
-      `WARN: expected unpacked natives at ${unpackedHint} — packaged app may fail chmod on postgres`,
+    // ignore
+  }
+  if (!postgresBin || !fsSync.existsSync(postgresBin)) {
+    throw new Error(
+      `Packaged postgres binary missing under app.asar.unpacked (found: ${postgresBin || "none"}). asarUnpack may have failed.`,
     );
   }
+  try {
+    fsSync.chmodSync(postgresBin, 0o755);
+  } catch (err) {
+    throw new Error(`chmod failed on packaged postgres at ${postgresBin}: ${err instanceof Error ? err.message : err}`);
+  }
+  console.log(`OK: postgres binary unpacked + chmod → ${postgresBin}`);
 
   console.log(`Artifacts → ${outRelease}`);
   for (const name of artifacts) console.log(`  - ${name}`);
