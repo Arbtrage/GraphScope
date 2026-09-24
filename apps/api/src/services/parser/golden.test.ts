@@ -8,12 +8,12 @@ const GOLDEN_REPO = path.resolve(__dirname, "../../../../../fixtures/repos/minim
 
 describe("parser golden recall", () => {
   it("discovers the expected operations from the minimal fixture repo", async () => {
-    const ops = await parseRepository(GOLDEN_REPO);
-    const names = ops.map((o) => o.operationName).filter(Boolean).sort();
+    const result = await parseRepository(GOLDEN_REPO);
+    const names = result.operations.map((o) => o.name).filter(Boolean).sort();
 
     expect(names).toEqual(["CreateItem", "GetUser", "ListItems", "UpdateUser"]);
 
-    const byName = Object.fromEntries(ops.filter((o) => o.operationName).map((o) => [o.operationName, o]));
+    const byName = Object.fromEntries(result.operations.filter((o) => o.name).map((o) => [o.name, o]));
     expect(byName.GetUser?.operationType).toBe("QUERY");
     expect(byName.UpdateUser?.operationType).toBe("MUTATION");
     expect(byName.ListItems?.operationType).toBe("QUERY");

@@ -1,15 +1,21 @@
 {
   "name": "@graphscope/desktop",
+  "productName": "GraphScope",
   "version": "0.1.0",
+  "description": "Local-first GraphQL explorer for your codebase",
+  "author": "GraphScope contributors",
   "private": true,
   "main": "dist/main.js",
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsc && pnpm exec electron .",
+    "build": "tsc -p tsconfig.json && cp src/preload.cjs dist/preload.cjs",
+    "dev": "tsc && cp src/preload.cjs dist/preload.cjs && node scripts/brand-macos.cjs && env -u ELECTRON_RUN_AS_NODE pnpm exec electron .",
+    "stage": "node scripts/stage-release.mjs",
+    "stage:check": "node scripts/stage-release.mjs --check",
+    "package:mac": "node scripts/package-mac.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
-    "test": "echo 'no tests'"
+    "test": "vitest run"
   },
   "dependencies": {
     "@graphscope/config": "workspace:*",
@@ -20,7 +26,10 @@
   "devDependencies": {
     "@types/node": "^22.10.2",
     "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.25.12",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

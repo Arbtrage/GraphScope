@@ -30,6 +30,12 @@ type Query {
     workspaceDashboard(workspaceId: ID!): WorkspaceDashboard!
     cacheStatus: CacheStatus!
     workspaceComposition(projectId: ID!): CompositionStatus!
+    explorerCatalog(repositoryLinkId: ID): ExplorerCatalog
+    explorerRepositories: [ExplorerRepositoryInfo!]!
+    scanStatus(jobId: ID!): ScanStatus!
+    repositoryTree(repositoryLinkId: ID!): [RepositoryTreeEntry!]!
+    repositoryFile(repositoryLinkId: ID!, path: String!): RepositoryFileContent!
+    catalogRevision(repositoryLinkId: ID!): Int!
   }
 
   type Mutation {
@@ -49,7 +55,9 @@ type Query {
     runSchemaCheck(schemaVersionId: ID!, previousVersionId: ID): SchemaCheck!
 
     enableRepository(input: EnableRepositoryInput!): RepositoryLink!
-    reindexRepository(id: ID!): RepositoryLink!
+    openRepository(localPath: String!): OpenRepositoryPayload!
+    introspectEnvironment(environmentId: ID!): ExplorerIntrospectPayload!
+    reindexRepository(id: ID!): OpenRepositoryPayload!
     disableRepository(id: ID!): RepositoryLink!
     setOperationManualFlag(id: ID!, isOperation: Boolean!): OperationDocument!
 

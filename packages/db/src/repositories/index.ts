@@ -3,6 +3,7 @@ import { MembershipRepository } from "./membership.js";
 import { ProjectRepository } from "./project.js";
 import { SchemaRepository } from "./schema.js";
 import { RepositoryLinkRepository, JobRepository } from "./repository-link.js";
+import { ExplorerRepository } from "./explorer.js";
 import { OperationRepository } from "./operation.js";
 import { EnvironmentRepository } from "./environment.js";
 import { CollectionRepository, ExecutionRepository } from "./collection.js";
@@ -89,7 +90,13 @@ export class UserRepository {
       }
       return existing;
     }
-    return this.createLocalUser(displayName, localUsername);
+    try {
+      return await this.createLocalUser(displayName, localUsername);
+    } catch {
+      const raced = await this.findByLocalUsername(localUsername);
+      if (raced) return raced;
+      throw new Error("Could not create local user");
+    }
   }
 }
 
@@ -234,6 +241,7 @@ export function createRepositories(db: Knex) {
     executions: new ExecutionRepository(db),
     analytics: new AnalyticsRepository(db),
     ai: new AiRepository(db),
+    explorer: new ExplorerRepository(db),
   };
 }
 
@@ -242,6 +250,8 @@ export { MembershipRepository } from "./membership.js";
 export { ProjectRepository } from "./project.js";
 export { SchemaRepository } from "./schema.js";
 export { RepositoryLinkRepository, JobRepository } from "./repository-link.js";
+export { ExplorerRepository } from "./explorer.js";
+export type { ExplorerParseInput } from "./explorer.js";
 export { OperationRepository } from "./operation.js";
 export { SearchRepository } from "./search.js";
 export type { SearchResult, SearchResultKind, SearchDocumentInput } from "./search.js";

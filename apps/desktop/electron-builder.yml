@@ -9,12 +9,35 @@ directories:
 files:
   - dist/**/*
   - package.json
+  - node_modules/**/*
   - "!**/*.map"
+  - "!**/.turbo/**"
+  - "!resources/**"
+  - "!scripts/**"
+  - "!src/**"
+
+asar: true
+npmRebuild: false
+nodeGypRebuild: false
+electronVersion: 33.4.11
+asarUnpack:
+  - "**/*.node"
+  - "**/embedded-postgres/**"
+  - "**/keytar/**"
+
+extraResources:
+  - from: resources/web
+    to: web
+  - from: resources/api
+    to: api
+  - from: resources/database
+    to: database
 
 mac:
   category: public.app-category.developer-tools
   hardenedRuntime: true
   gatekeeperAssess: false
+  identity: null
   icon: build/icon.png
   target:
     - dmg

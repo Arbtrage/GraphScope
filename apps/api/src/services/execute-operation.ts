@@ -106,15 +106,8 @@ export async function executeOperation(
   try {
     await assertSafeUrl(endpointUrl);
   } catch (err) {
-    return {
-      status: "BLOCKED",
-      httpStatus: null,
-      durationMs: 0,
-      responseBytes: null,
-      graphqlErrorsCount: 0,
-      responsePreview: err instanceof Error ? err.message : "Blocked",
-      responseBody: "",
-    };
+    const detail = err instanceof Error ? err.message : "Blocked";
+    return failureResult("BLOCKED", "Request blocked", detail, 0);
   }
 
   const started = Date.now();
@@ -158,17 +151,86 @@ export async function executeOperation(
   } catch (err) {
     clearTimeout(timer);
     const durationMs = Date.now() - started;
-    const isTimeout = err instanceof Error && err.name === "AbortError";
+    const classified = classifyExecuteFailure(err);
+    return failureResult(classified.status, classified.title, classified.detail, durationMs);
+  }
+}
+
+export function classifyExecuteFailure(err: unknown): {
+  status: ExecutionStatus;
+  title: string;
+  detail: string;
+} {
+  if (err instanceof Error && err.name === "AbortError") {
     return {
-      status: isTimeout ? "TIMEOUT" : "TRANSPORT_ERROR",
-      httpStatus: null,
-      durationMs,
-      responseBytes: null,
-      graphqlErrorsCount: 0,
-      responsePreview: err instanceof Error ? err.message : "Request failed",
-      responseBody: "",
+      status: "TIMEOUT",
+      title: "Request timed out",
+      detail: "The server did not respond within 30 seconds.",
     };
   }
+  const code = errorCode(err);
+  const message = err instanceof Error ? err.message : "Request failed";
+  if (code === "ECONNREFUSED") {
+    return {
+      status: "TRANSPORT_ERROR",
+      title: "Server not reachable",
+      detail: "Nothing is listening at this URL. Check the endpoint and that the API is running.",
+    };
+  }
+  if (code === "ENOTFOUND" || code === "EAI_AGAIN") {
+    return {
+      status: "TRANSPORT_ERROR",
+      title: "Server not reachable",
+      detail: "Could not resolve the hostname.",
+    };
+  }
+  if (code === "ETIMEDOUT" || code === "UND_ERR_CONNECT_TIMEOUT") {
+    return {
+      status: "TIMEOUT",
+      title: "Request timed out",
+      detail: "The connection timed out before the server responded.",
+    };
+  }
+  if (/fetch failed|failed to fetch|networkerror/i.test(message)) {
+    return {
+      status: "TRANSPORT_ERROR",
+      title: "Server not reachable",
+      detail: message,
+    };
+  }
+  return {
+    status: "TRANSPORT_ERROR",
+    title: "Request failed",
+    detail: message,
+  };
+}
+
+function errorCode(err: unknown): string | undefined {
+  let current: unknown = err;
+  for (let i = 0; i < 4 && current && typeof current === "object"; i += 1) {
+    const rec = current as { code?: unknown; cause?: unknown };
+    if (typeof rec.code === "string") return rec.code;
+    current = rec.cause;
+  }
+  return undefined;
+}
+
+function failureResult(
+  status: ExecutionStatus,
+  title: string,
+  detail: string,
+  durationMs: number,
+): ExecuteResult {
+  const responseBody = JSON.stringify({ error: { code: status, title, detail } });
+  return {
+    status,
+    httpStatus: null,
+    durationMs,
+    responseBytes: null,
+    graphqlErrorsCount: 0,
+    responsePreview: detail,
+    responseBody,
+  };
 }
 
 /** Resolve query text: non-empty adhoc wins over stored operation (draft edit). */

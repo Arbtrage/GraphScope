@@ -1,6 +1,7 @@
 import { typeDefs as workspace } from "./workspace.js";
 import { typeDefs as catalog } from "./catalog.js";
 import { typeDefs as discovery } from "./discovery.js";
+import { typeDefs as explorer } from "./explorer.js";
 import { typeDefs as execution } from "./execution.js";
 import { typeDefs as search } from "./search.js";
 import { typeDefs as jobs } from "./jobs.js";
@@ -13,6 +14,7 @@ export const typeDefs = [
   workspace,
   catalog,
   discovery,
+  explorer,
   execution,
   search,
   jobs,

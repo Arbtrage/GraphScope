@@ -7,6 +7,7 @@ import { setNotifyWebhookUrl } from "../../services/notify.js";
 
 const TASK_MAP: Record<string, string> = {
   "parse.repo": "parse.repo",
+  "parse.repo.incremental": "parse.repo.incremental",
   "schema.check": "schema.check",
   "search.reindex": "search.reindex",
   "analytics.analyze_op": "analytics.analyze_op",

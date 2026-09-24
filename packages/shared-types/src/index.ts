@@ -134,6 +134,8 @@ export interface Environment {
   endpointUrl: string;
   isProduction: boolean;
   headers: Record<string, string>;
+  introspectedSdl?: string | null;
+  introspectedAt?: string | null;
 }
 
 export interface SecretMeta {
@@ -271,3 +273,66 @@ export interface WorkspaceDashboard {
   execP50Ms: number | null;
   execP95Ms: number | null;
 }
+
+export type ExplorerTypeKind = "OBJECT" | "INPUT" | "ENUM" | "INTERFACE" | "CONNECTION";
+export type ExplorerUsageKind = "component" | "page" | "test" | "hook";
+export type ExplorerFileKind = "graphql" | "tsx" | "ts" | "test";
+export type ExplorerOpKind = "query" | "mutation" | "subscription";
+
+export interface ExplorerRepoStats {
+  operations: number;
+  queries: number;
+  mutations: number;
+  subscriptions: number;
+  fragments: number;
+  types: number;
+  endpoints: number;
+  files: number;
+}
+
+export interface ExplorerRepositoryInfo {
+  id: string;
+  name: string;
+  branch: string;
+  scannedAtLabel: string;
+  localPath?: string | null;
+  status: string;
+  lastError?: string | null;
+  operationCount: number;
+}
+
+export interface ExplorerCatalogPayload {
+  repository: ExplorerRepositoryInfo;
+  stats: ExplorerRepoStats;
+  operations: Array<Record<string, unknown>>;
+  fragments: Array<Record<string, unknown>>;
+  types: Array<Record<string, unknown>>;
+  fields: Array<Record<string, unknown>>;
+  files: Array<Record<string, unknown>>;
+  endpoints: Array<Record<string, unknown>>;
+  usages: Array<Record<string, unknown>>;
+  attention: Array<{ id: string; label: string; count: number; severity: "warning" | "info" }>;
+  recentOperationIds: string[];
+  graphEdges: Array<{ id: string; source: string; target: string; relation: string }>;
+  surfaceNodeIds: string[];
+  history: Array<Record<string, unknown>>;
+}
+
+export interface ScanStatusPayload {
+  jobId: string;
+  status: string;
+  step: string | null;
+  done: boolean;
+  error: string | null;
+  stats: {
+    operations: number;
+    fragments: number;
+    types: number;
+    endpoints: number;
+    files: number;
+  } | null;
+  ignoredCount: number;
+  skippedFiles: string[];
+  parseErrors: Array<{ path: string; message: string }>;
+}
+

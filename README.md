@@ -3,55 +3,47 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Open Source](https://img.shields.io/badge/Open%20Source-Yes-green.svg)](https://github.com/Arbtrage/GraphScope)
 
-**The open source Postman for GraphQL — on your Mac, for free.**
+**A local GraphQL explorer for a codebase.**
 
-GraphScope is a **local-first desktop workspace** for GraphQL teams and solo developers. Use it **daily like Postman**: collections, environments, secrets, history, and a request runner — plus GraphQL superpowers: repo discovery, schema registry, Voyager visualization, breaking-change checks, and schema-aware AI.
+Open a folder. GraphScope scans it for `.graphql` files and embedded operations, then lets you run them against a real endpoint — with environments, secrets, an introspected schema, and history. Everything stays on your Mac.
 
 > **No GraphScope account. No subscription. No servers we operate.**  
-> Download the `.dmg` from [GitHub Releases](https://github.com/Arbtrage/GraphScope/releases) or build from source.
+> Download a macOS `.dmg` from [GitHub Releases](https://github.com/Arbtrage/GraphScope/releases), or build from source below.
 
-## Use it like Postman
+## Install (macOS)
+
+1. Download the latest `.dmg` from [Releases](https://github.com/Arbtrage/GraphScope/releases) (tag `v*`).
+2. Open the DMG and drag **GraphScope** to Applications.
+3. First launch: right-click → **Open** (unsigned builds are blocked by Gatekeeper until you approve once).  
+   If macOS still quarantines the app: `xattr -cr /Applications/GraphScope.app`
+
+Apple signing/notarization is a follow-up — builds from CI are unsigned on purpose for this cut.
+
+## What it does
 
 | You want to… | GraphScope |
 |---|---|
-| Save and organize requests | **Collections** |
+| Find the GraphQL already in a repo | **Open folder → scan** |
 | Switch dev / staging / prod | **Environments** |
-| Store API tokens safely | **Keychain secrets** |
-| Re-run past requests | **History** |
-| Execute and inspect responses | **Operation runner** |
+| Store API tokens safely | **Secrets** (`{{NAME}}` in URL and headers) |
+| Execute and inspect responses | **Run drawer** |
+| See the live schema | **Pull schema from a URL** |
+| Re-open a past run | **History** (restores the last draft) |
 | Find anything fast | **⌘K search** |
-
-## Plus GraphQL-only features Postman doesn't do well
-
-- **Discover** operations automatically from your repos  
-- **Register** schemas and catch **breaking changes**  
-- **Explore** the graph with Voyager-style visualization  
-- **Analyze** complexity and anti-patterns  
-- **Ask AI** (your OpenAI key) with schema-aware context  
-
-## Open source
-
-- **License:** Apache 2.0 — free to use, fork, and contribute  
-- **Code:** public on GitHub  
-- **Releases:** signed macOS `.dmg` on GitHub Releases  
-- **We host:** landing page only — everything else runs on your Mac  
 
 ## Quick start
 
-1. Download `GraphScope-x.y.z.dmg` from [Releases](https://github.com/Arbtrage/GraphScope/releases)  
-2. Open the app → embedded PostgreSQL starts automatically  
-3. Add a repo or local folder → browse discovered operations  
-4. Create an environment → run your first query  
-
-### Install via Homebrew (optional)
-
-After a release is published to GitHub Releases:
-
 ```bash
-brew install --cask graphscope
+pnpm install
+cp .env.example .env
+pnpm desktop:dev    # Electron + embedded PG + API + Vite (auto-migrates; no Docker)
+# or (contributor path — external Postgres on 5432)
+docker compose up -d && pnpm db:migrate && pnpm stack:dev
 ```
 
-See [`packaging/homebrew/graphscope.rb`](packaging/homebrew/graphscope.rb) for the cask definition.
+Then: **Open folder** → wait for the scan report → **Continue** into Operations → add an environment URL → run a query.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full setup.
 
 ### Demo data
 
@@ -59,45 +51,31 @@ See [`packaging/homebrew/graphscope.rb`](packaging/homebrew/graphscope.rb) for t
 pnpm demo:reset
 ```
 
-Seeds a demo workspace with sample operations (including GS001–GS003 anti-patterns), executions, and federated schema projects.
+Seeds a demo workspace with sample operations and executions.
 
-### Development
+## Open source
 
-```bash
-pnpm install
-cp .env.example .env
-pnpm desktop:dev    # Electron + embedded PG + API + web
-# or
-docker compose up -d && pnpm stack:dev   # Docker Postgres + API + web
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for full setup.
-
-Or build from source — see [CONTRIBUTING.md](CONTRIBUTING.md).
+- **License:** Apache 2.0 — free to use, fork, and contribute
+- **Code:** public on GitHub
+- **We host:** landing page only — the explorer runs on your Mac
 
 ## Specification
 
 Engineering docs: **[docs/spec/README.md](docs/spec/README.md)**
 
-## Stack (v1.4)
+## Stack
 
 | Layer | Technology |
 |---|---|
-| Desktop | Electron + Next.js |
-| UI | **shadcn/ui** + Tailwind + GraphScope tokens (`packages/ui`) |
-| GraphQL client | **Apollo Client** |
-| API | **Express** + **Apollo Server** (local loopback) |
-| Database | **PostgreSQL 16** (embedded, local) |
-| Migrations & SQL | **Knex** |
-| Jobs | **graphile-worker** (PostgreSQL queue) |
-| Search | PostgreSQL **full-text search** |
-| Cache (optional) | Local **Redis** when configured |
+| Desktop | Electron + Vite |
+| UI | React + Tailwind |
+| API | Express + GraphQL (local loopback) |
+| Database | PostgreSQL (embedded, local) |
+| Migrations & SQL | Knex |
+| Jobs | graphile-worker (PostgreSQL queue) |
+| Search | PostgreSQL full-text search |
 
-**Not in v1:** cloud hosting, maintainer-operated API/DB, Docker required for end users.
-
-## Portfolio narrative
-
-GraphScope demonstrates production-grade **Node.js / Express / GraphQL / PostgreSQL / Knex** backend engineering in a shippable open-source desktop product — migrations, query optimization, background workers, and Apollo Client integration — without requiring cloud infrastructure.
+**Not in this cut:** cloud hosting, Apple notarization, collections, AI, Voyager, or a public schema registry.
 
 ## Contributing
 

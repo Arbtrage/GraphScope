@@ -1,4 +1,4 @@
-import { Menu, app, shell, type BrowserWindow } from "electron";
+import { Menu, shell, type BrowserWindow } from "electron";
 import { checkForUpdatesInteractive } from "../updater.js";
 
 export function buildMenu(win: BrowserWindow) {
@@ -7,7 +7,7 @@ export function buildMenu(win: BrowserWindow) {
     ...(isMac
       ? [
           {
-            label: app.name,
+            label: "GraphScope",
             submenu: [
               { role: "about" as const },
               { type: "separator" as const },
@@ -16,7 +16,7 @@ export function buildMenu(win: BrowserWindow) {
                 accelerator: "CmdOrCtrl+,",
                 click: () => {
                   win.show();
-                  win.webContents.send("graphscope:open-route", "/app");
+                  win.webContents.send("graphscope:open-route", "open-repository");
                 },
               },
               { type: "separator" as const },
@@ -31,6 +31,21 @@ export function buildMenu(win: BrowserWindow) {
           },
         ]
       : []),
+    {
+      label: "File",
+      submenu: [
+        {
+          label: "Open Repository…",
+          accelerator: "CmdOrCtrl+O",
+          click: () => {
+            win.show();
+            win.webContents.send("graphscope:open-route", "open-repository");
+          },
+        },
+        { type: "separator" },
+        isMac ? { role: "close" } : { role: "quit" },
+      ],
+    },
     {
       label: "Edit",
       submenu: [

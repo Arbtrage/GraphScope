@@ -35,7 +35,6 @@ export function startNotificationWatcher(
             if (win) {
               win.show();
               win.focus();
-              win.webContents.send("graphscope:open-route", "/app/jobs");
             }
           });
           n.show();

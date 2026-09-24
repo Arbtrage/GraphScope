@@ -73,6 +73,20 @@ export class RepositoryLinkRepository {
     return rows.map(mapRepo);
   }
 
+  async listForWorkspace(workspaceId: string): Promise<RepositoryLink[]> {
+    const rows = await this.db("core_repository_link")
+      .where({ workspace_id: workspaceId })
+      .orderBy("updated_at", "desc");
+    return rows.map(mapRepo);
+  }
+
+  async findByLocalPath(workspaceId: string, localPath: string): Promise<RepositoryLink | null> {
+    const row = await this.db("core_repository_link")
+      .where({ workspace_id: workspaceId, local_path: localPath })
+      .first();
+    return row ? mapRepo(row) : null;
+  }
+
   async findById(id: string, workspaceId: string): Promise<RepositoryLink | null> {
     const row = await this.db("core_repository_link")
       .where({ repository_link_id: id, workspace_id: workspaceId })
@@ -122,6 +136,12 @@ export class JobRepository {
   async findById(jobId: string, workspaceId: string): Promise<Job | null> {
     const row = await this.db("core_job").where({ job_id: jobId, workspace_id: workspaceId }).first();
     return row ? mapJob(row) : null;
+  }
+
+  async updatePayload(jobId: string, patch: Record<string, unknown>): Promise<void> {
+    const row = await this.db("core_job").where({ job_id: jobId }).first();
+    const payload = { ...((row?.payload as Record<string, unknown> | null) ?? {}), ...patch };
+    await this.db("core_job").where({ job_id: jobId }).update({ payload, updated_at: this.db.fn.now() });
   }
 
   async listForWorkspace(workspaceId: string, limit = 50): Promise<Job[]> {

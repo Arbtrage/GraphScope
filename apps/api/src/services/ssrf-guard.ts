@@ -1,7 +1,12 @@
 import dns from "node:dns/promises";
 import net from "node:net";
 
-const BLOCKED_HOSTS = new Set(["localhost", "metadata.google.internal"]);
+/** Always blocked — cloud metadata / SSRF classics. */
+const ALWAYS_BLOCKED_HOSTS = new Set(["metadata.google.internal"]);
+
+function isLinkLocalMetadata(ip: string): boolean {
+  return ip === "169.254.169.254" || ip.startsWith("fe80:");
+}
 
 function isPrivateIp(ip: string): boolean {
   if (ip === "127.0.0.1" || ip === "::1") return true;
@@ -12,6 +17,14 @@ function isPrivateIp(ip: string): boolean {
   if (parts.length === 4 && parts[0] === 172 && parts[1]! >= 16 && parts[1]! <= 31) return true;
   if (ip.startsWith("fc") || ip.startsWith("fd") || ip.startsWith("fe80")) return true;
   return false;
+}
+
+/** Local-first desktop/dev may call loopback and RFC1918 GraphQL endpoints. */
+export function allowPrivateUrls(): boolean {
+  if (process.env.GRAPHSCOPE_ALLOW_PRIVATE_URLS === "1") return true;
+  if (process.env.GRAPHSCOPE_ALLOW_PRIVATE_URLS === "0") return false;
+  const profile = process.env.GRAPHSCOPE_DB_PROFILE ?? "development";
+  return profile === "embedded" || profile === "development";
 }
 
 export async function assertSafeUrl(rawUrl: string): Promise<URL> {
@@ -25,16 +38,28 @@ export async function assertSafeUrl(rawUrl: string): Promise<URL> {
     throw new Error("Only http and https URLs are allowed");
   }
   const host = parsed.hostname.toLowerCase();
-  if (BLOCKED_HOSTS.has(host)) {
+  if (ALWAYS_BLOCKED_HOSTS.has(host)) {
     throw new Error("Blocked host");
   }
+
+  const allowPrivate = allowPrivateUrls();
+
   if (net.isIP(host)) {
-    if (isPrivateIp(host)) throw new Error("Private IP addresses are blocked");
+    if (isLinkLocalMetadata(host)) throw new Error("Blocked host");
+    if (!allowPrivate && isPrivateIp(host)) throw new Error("Private IP addresses are blocked");
     return parsed;
   }
+
+  if (!allowPrivate && (host === "localhost" || host.endsWith(".localhost"))) {
+    throw new Error("Blocked host");
+  }
+
   const records = await dns.lookup(host, { all: true });
   for (const rec of records) {
-    if (isPrivateIp(rec.address)) {
+    if (isLinkLocalMetadata(rec.address)) {
+      throw new Error("Blocked host");
+    }
+    if (!allowPrivate && isPrivateIp(rec.address)) {
       throw new Error("URL resolves to private IP");
     }
   }

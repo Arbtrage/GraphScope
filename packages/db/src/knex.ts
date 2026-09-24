@@ -3,7 +3,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const migrationsDir = path.resolve(__dirname, "../../../database/migrations");
+const defaultMigrationsDir = path.resolve(__dirname, "../../../database/migrations");
+
+function resolveMigrationsConfig(): { directory: string; extension: string } {
+  const directory = process.env.GRAPHSCOPE_MIGRATIONS_DIR?.trim() || defaultMigrationsDir;
+  const extension = process.env.GRAPHSCOPE_MIGRATIONS_EXT?.trim() || "ts";
+  return { directory, extension };
+}
 
 let instance: Knex | null = null;
 
@@ -29,8 +35,7 @@ export function createKnex(options: DbConnectionOptions = {}): Knex {
       database: options.database ?? process.env.GRAPHSCOPE_DB_NAME ?? (profile === "test" ? "graphscope_test" : "graphscope"),
     },
     migrations: {
-      directory: migrationsDir,
-      extension: "ts",
+      ...resolveMigrationsConfig(),
       loadExtensions: [".ts", ".js"],
     },
     pool: { min: 1, max: 10 },

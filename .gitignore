@@ -10,3 +10,5 @@ out
 coverage
 *.tsbuildinfo
 apps/desktop/release
+apps/desktop/.release-pack
+.pnpm-store

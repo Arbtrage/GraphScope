@@ -12,6 +12,7 @@ export {
   SchemaRepository,
   RepositoryLinkRepository,
   JobRepository,
+  ExplorerRepository,
   OperationRepository,
   SearchRepository,
   EnvironmentRepository,
@@ -25,5 +26,6 @@ export {
 export type { AiSettings, AiRedactionMode, AiInvocationKind, AiInvocationStatus, AiInvocationRecord } from "./repositories/ai.js";
 export type { Repositories } from "./repositories/index.js";
 export type { ParsedOperation } from "./repositories/operation.js";
+export type { ExplorerParseInput } from "./repositories/explorer.js";
 export type { SearchResult, SearchResultKind, SearchDocumentInput } from "./repositories/search.js";
 export type { OperationFinding, FindingInput, WorkspaceDashboard, FindingSeverity } from "./repositories/analytics.js";

@@ -28,11 +28,17 @@ jobs:
         run: |
           pnpm --filter @graphscope/config build
           pnpm --filter @graphscope/shared-types build
+          pnpm --filter @graphscope/schema-tools build
           pnpm --filter @graphscope/db build
+          pnpm --filter @graphscope/api build
+          pnpm --filter @graphscope/web build
           pnpm --filter @graphscope/desktop build
 
       - name: Typecheck desktop
         run: pnpm --filter @graphscope/desktop typecheck
+
+      - name: Stage-release prerequisites
+        run: pnpm --filter @graphscope/desktop stage:check
 
       - name: Smoke — Electron main loads
         run: node -e "import('./apps/desktop/dist/main.js').then(() => console.log('main ok')).catch(e => { console.error(e); process.exit(1); })"

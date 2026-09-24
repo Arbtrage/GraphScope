@@ -4,6 +4,11 @@ import { handleDeepLink } from "./main/deep-link.js";
 import { createWindow } from "./main/window.js";
 import { PROTOCOL, runtime } from "./main/runtime.js";
 
+app.setName("GraphScope");
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.graphscope.desktop");
+}
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
@@ -11,9 +16,17 @@ if (!gotLock) {
   app.on("second-instance", (_event, argv) => {
     const url = argv.find((a) => a.startsWith(`${PROTOCOL}://`));
     if (url) handleDeepLink(url);
+
     if (runtime.mainWindow) {
       if (runtime.mainWindow.isMinimized()) runtime.mainWindow.restore();
+      runtime.mainWindow.show();
       runtime.mainWindow.focus();
+      return;
+    }
+
+    if (runtime.splashWindow && !runtime.splashWindow.isDestroyed()) {
+      runtime.splashWindow.show();
+      runtime.splashWindow.focus();
     }
   });
 
@@ -41,6 +54,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", async () => {
+  runtime.ready = false;
   if (runtime.apiProcess) {
     runtime.apiProcess.kill("SIGTERM");
     runtime.apiProcess = null;
@@ -52,7 +66,11 @@ app.on("before-quit", async () => {
 });
 
 app.on("activate", () => {
+  if (!runtime.ready) return;
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
+  } else {
+    runtime.mainWindow?.show();
+    runtime.mainWindow?.focus();
   }
 });

@@ -9,6 +9,8 @@ function mapEnv(row: Record<string, unknown>): Environment {
     endpointUrl: (row.endpoint_url as string) ?? "",
     isProduction: Boolean(row.is_production),
     headers: (row.headers_json as Record<string, string>) ?? {},
+    introspectedSdl: typeof row.introspected_sdl === "string" ? row.introspected_sdl : null,
+    introspectedAt: row.introspected_at ? String(row.introspected_at) : null,
   };
 }
 
@@ -64,6 +66,18 @@ export class EnvironmentRepository {
     const [row] = await this.db("core_environment")
       .where({ environment_id: id, workspace_id: workspaceId })
       .update(update)
+      .returning("*");
+    return row ? mapEnv(row) : null;
+  }
+
+  async saveIntrospectedSdl(id: string, workspaceId: string, sdl: string): Promise<Environment | null> {
+    const [row] = await this.db("core_environment")
+      .where({ environment_id: id, workspace_id: workspaceId })
+      .update({
+        introspected_sdl: sdl,
+        introspected_at: this.db.fn.now(),
+        updated_at: this.db.fn.now(),
+      })
       .returning("*");
     return row ? mapEnv(row) : null;
   }

@@ -1,8 +1,10 @@
 import { getDefaultDataDir } from "@graphscope/config";
+import { app } from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { allocatePort, LOOPBACK_HOST, PREFERRED_PORTS } from "./ports.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../../..");
@@ -11,8 +13,6 @@ export interface PostgresHandle {
   port: number;
   stop: () => Promise<void>;
 }
-
-const EMBEDDED_PG_PORT = 55432;
 
 async function isPostgresInitialized(databaseDir: string): Promise<boolean> {
   try {
@@ -45,46 +45,86 @@ async function ensurePostgresInitialized(
   await pg.initialise();
 }
 
-export async function startEmbeddedPostgres(dataDir: string): Promise<PostgresHandle> {
+export async function startEmbeddedPostgres(
+  dataDir: string,
+  preferredPort: number = PREFERRED_PORTS.pg,
+): Promise<PostgresHandle> {
   const pgDataDir = path.join(dataDir, "data", "pg");
   const embeddedModule = await import("embedded-postgres");
   const EmbeddedPostgres = embeddedModule.default;
 
-  const pg = new EmbeddedPostgres({
-    databaseDir: pgDataDir,
-    user: "graphscope",
-    password: "graphscope",
-    port: EMBEDDED_PG_PORT,
-    persistent: true,
-  });
+  let port: number = preferredPort;
+  let lastError: unknown;
 
-  await ensurePostgresInitialized(pg, pgDataDir);
-  await pg.start();
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (attempt > 0) {
+      port = await allocatePort(PREFERRED_PORTS.pg + 1, LOOPBACK_HOST);
+    } else {
+      port = await allocatePort(preferredPort, LOOPBACK_HOST);
+    }
 
-  try {
-    await pg.createDatabase("graphscope");
-  } catch {
-    // database may already exist
+    const pg = new EmbeddedPostgres({
+      databaseDir: pgDataDir,
+      user: "graphscope",
+      password: "graphscope",
+      port,
+      persistent: true,
+    });
+
+    try {
+      await ensurePostgresInitialized(pg, pgDataDir);
+      await pg.start();
+
+      try {
+        await pg.createDatabase("graphscope");
+      } catch {
+        // database may already exist
+      }
+
+      process.env.GRAPHSCOPE_DB_PROFILE = "embedded";
+      process.env.GRAPHSCOPE_DB_HOST = LOOPBACK_HOST;
+      process.env.GRAPHSCOPE_DB_PORT = String(port);
+      process.env.GRAPHSCOPE_DB_USER = "graphscope";
+      process.env.GRAPHSCOPE_DB_PASSWORD = "graphscope";
+      process.env.GRAPHSCOPE_DB_NAME = "graphscope";
+
+      return {
+        port,
+        stop: async () => {
+          await pg.stop();
+        },
+      };
+    } catch (err) {
+      lastError = err;
+      try {
+        await pg.stop();
+      } catch {
+        // ignore stop errors on failed start
+      }
+    }
   }
 
-  const port = EMBEDDED_PG_PORT;
-
-  process.env.GRAPHSCOPE_DB_PROFILE = "embedded";
-  process.env.GRAPHSCOPE_DB_HOST = "127.0.0.1";
-  process.env.GRAPHSCOPE_DB_PORT = String(port);
-  process.env.GRAPHSCOPE_DB_USER = "graphscope";
-  process.env.GRAPHSCOPE_DB_PASSWORD = "graphscope";
-  process.env.GRAPHSCOPE_DB_NAME = "graphscope";
-
-  return {
-    port,
-    stop: async () => {
-      await pg.stop();
-    },
-  };
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`Failed to start embedded PostgreSQL: ${String(lastError)}`);
 }
 
 export function spawnApi(): ChildProcess {
+  if (app.isPackaged) {
+    const entry = path.join(process.resourcesPath, "api", "index.js");
+    return spawn(process.execPath, [entry], {
+      cwd: path.join(process.resourcesPath, "api"),
+      env: {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: "1",
+        GRAPHSCOPE_MIGRATIONS_DIR: path.join(process.resourcesPath, "database", "migrations"),
+        GRAPHSCOPE_MIGRATIONS_EXT: "js",
+        GRAPHSCOPE_ALLOW_PRIVATE_URLS: "1",
+      },
+      stdio: "inherit",
+    });
+  }
+
   const apiEntry = path.join(repoRoot, "apps/api/src/index.ts");
   return spawn("pnpm", ["exec", "tsx", apiEntry], {
     cwd: repoRoot,

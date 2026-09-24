@@ -17,6 +17,7 @@
     "@graphscope/db": "workspace:*",
     "@graphscope/schema-tools": "workspace:*",
     "@graphscope/shared-types": "workspace:*",
+    "chokidar": "^5.0.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "graphile-worker": "^0.16.6",
@@ -24,6 +25,7 @@
     "graphql-depth-limit": "^1.1.0",
     "graphql-query-complexity": "^2.0.0",
     "graphql-scalars": "^1.24.0",
+    "ignore": "^7.0.6",
     "ioredis": "^6.0.0",
     "keytar": "^7.9.0"
   },

@@ -22,29 +22,36 @@ pnpm desktop:dev
 ```
 
 This starts:
-1. Next.js renderer on `http://localhost:3000`
-2. Electron — embedded PostgreSQL + local API on `127.0.0.1:47321`
+1. Vite renderer (preferred `http://127.0.0.1:5173`, falls back if busy)
+2. Electron — embedded PostgreSQL (preferred `55432`) + local API (preferred `47321`)
+3. Knex migrations run automatically when the API boots — no separate `db:migrate` for desktop
+
+Ports are written to `{GRAPHSCOPE_DATA_DIR}/runtime.json`. If a preferred port is occupied, the next free port nearby is used and passed to API + renderer.
 
 ## Quick start (API + web without Electron)
 
+Requires an external Postgres on `127.0.0.1:5432` (Docker Compose is optional):
+
 ```bash
-docker compose up -d
+docker compose up -d   # optional — or use Homebrew Postgres with user/db graphscope
 cp .env.example .env
+pnpm db:migrate
 pnpm stack:dev
 ```
 
 API: `http://127.0.0.1:47321/graphql`  
-Web: `http://localhost:3000`
+Web: `http://localhost:5173`
 
 ## Scripts
 
 | Command | Description |
 |---|---|
-| `pnpm desktop:dev` | Full desktop stack (Electron + web) |
-| `pnpm stack:dev` | API + web (requires Docker Postgres) |
+| `pnpm desktop:dev` | Full desktop stack (Electron + embedded PG + web) |
+| `pnpm --filter @graphscope/desktop package:mac` | Build unsigned macOS `.dmg` (after package builds) |
+| `pnpm stack:dev` | API + web (requires external Postgres on 5432) |
 | `pnpm api:dev` | Express GraphQL API only |
-| `pnpm web:dev` | Next.js renderer only |
-| `pnpm db:migrate` | Run Knex migrations |
+| `pnpm web:dev` | Vite renderer only |
+| `pnpm db:migrate` | Run Knex migrations (stack:dev / external PG only) |
 | `pnpm demo:reset` | Reset demo workspace seed data |
 | `pnpm test` | Run all tests |
 | `pnpm typecheck` | TypeScript check all packages |
@@ -84,6 +91,14 @@ Phase 3 adds hardening and ship basics:
 - **Demo seed** — `pnpm demo:reset` for a sample workspace, project, schema, and environment
 - **Landing + release** — `apps/landing`, electron-builder config, macOS release/smoke workflows
 - **OSS docs** — LICENSE (Apache-2.0), SECURITY.md, CODE_OF_CONDUCT.md, Product Hunt kit stub
+
+### Shipping a macOS release
+
+1. Build packages, then package:  
+   `pnpm --filter @graphscope/config --filter @graphscope/shared-types --filter @graphscope/schema-tools --filter @graphscope/db --filter @graphscope/api --filter @graphscope/ui --filter @graphscope/web --filter @graphscope/desktop build`  
+   `pnpm --filter @graphscope/desktop package:mac`
+2. Or push a `v*` tag — [`.github/workflows/release-mac.yml`](.github/workflows/release-mac.yml) builds an unsigned `.dmg` + zip and attaches them to the GitHub Release.
+3. Gatekeeper: right-click → Open, or `xattr -cr /Applications/GraphScope.app`. Apple signing/notarization is optional follow-up when secrets exist.
 
 Run `pnpm demo:reset` after migrations to populate demo data. Landing dev server: `pnpm --filter @graphscope/landing dev` (port 3001).
 

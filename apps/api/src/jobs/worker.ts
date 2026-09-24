@@ -2,6 +2,7 @@ import type { Knex } from "@graphscope/db";
 import { run, type Runner } from "graphile-worker";
 import { createRepositories } from "@graphscope/db";
 import { runParseRepoTask } from "./tasks/parse-repo.js";
+import { runParseRepoIncrementalTask } from "./tasks/parse-repo-incremental.js";
 import { runSchemaCheckTask } from "./tasks/schema-check.js";
 import { runSearchReindexTask } from "./tasks/search-reindex.js";
 import { runAnalyticsAnalyzeOpTask } from "./tasks/analytics-analyze-op.js";
@@ -20,8 +21,15 @@ export async function startWorker(db: Knex): Promise<WorkerHandle> {
       "parse.repo": async (payload) => {
         const repos = createRepositories(db);
         const p = payload as Parameters<typeof runParseRepoTask>[1];
-        await runParseRepoTask(repos, p, db);
+        await runParseRepoTask(repos, p);
         await runSearchReindexTask(repos, { workspaceId: p.workspaceId });
+      },
+      "parse.repo.incremental": async (payload) => {
+        const repos = createRepositories(db);
+        await runParseRepoIncrementalTask(
+          repos,
+          payload as Parameters<typeof runParseRepoIncrementalTask>[1],
+        );
       },
       "schema.check": async (payload) => {
         const repos = createRepositories(db);

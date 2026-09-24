@@ -2,6 +2,7 @@ import { GraphQLJSON } from "graphql-scalars";
 import { resolvers as aiResolvers } from "./resolvers/ai.js";
 import { resolvers as catalogResolvers } from "./resolvers/catalog.js";
 import { resolvers as discoveryResolvers } from "./resolvers/discovery.js";
+import { resolvers as explorerResolvers } from "./resolvers/explorer.js";
 import { resolvers as executionResolvers } from "./resolvers/execution.js";
 import { resolvers as jobsResolvers } from "./resolvers/jobs.js";
 import { resolvers as searchResolvers } from "./resolvers/search.js";
@@ -15,6 +16,7 @@ export const resolvers = {
     ...workspaceResolvers.Query,
     ...catalogResolvers.Query,
     ...discoveryResolvers.Query,
+    ...explorerResolvers.Query,
     ...searchResolvers.Query,
     ...executionResolvers.Query,
     ...jobsResolvers.Query,
@@ -26,6 +28,7 @@ export const resolvers = {
     ...workspaceResolvers.Mutation,
     ...catalogResolvers.Mutation,
     ...discoveryResolvers.Mutation,
+    ...explorerResolvers.Mutation,
     ...searchResolvers.Mutation,
     ...executionResolvers.Mutation,
     ...aiResolvers.Mutation,
@@ -33,4 +36,6 @@ export const resolvers = {
   },
   SchemaVersion: catalogResolvers.SchemaVersion,
   Collection: executionResolvers.Collection,
+  ExplorerEndpoint: explorerResolvers.ExplorerEndpoint,
+  ExplorerType: explorerResolvers.ExplorerType,
 };

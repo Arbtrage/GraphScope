@@ -113,11 +113,13 @@ export const resolvers = {
           repositoryLinkId: link.id,
         });
       });
-      return (await ctx.repos.repositoryLinks.findById(args.id, workspaceId))!;
+      return { jobId, repositoryLinkId: link.id };
     },
 
     disableRepository: async (_: unknown, args: { id: string }, ctx: GraphContext) => {
       const workspaceId = await requireRole(ctx, "EDITOR");
+      const { stopRepoWatcher } = await import("../../services/repo-watcher.js");
+      await stopRepoWatcher(args.id);
       await ctx.repos.repositoryLinks.updateStatus(args.id, workspaceId, "DISABLED");
       const link = await ctx.repos.repositoryLinks.findById(args.id, workspaceId);
       if (!link) throw new GraphQLError("Repository not found", { extensions: { code: "NOT_FOUND" } });

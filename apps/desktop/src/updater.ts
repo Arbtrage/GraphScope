@@ -1,5 +1,8 @@
+import { createRequire } from "node:module";
 import { BrowserWindow, dialog } from "electron";
-import { autoUpdater } from "electron-updater";
+
+const require = createRequire(import.meta.url);
+const { autoUpdater } = require("electron-updater") as typeof import("electron-updater");
 
 export function initAutoUpdater(): void {
   autoUpdater.autoDownload = false;

@@ -2,10 +2,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { getDefaultDataDir } from "@graphscope/config";
 import type { Repositories } from "@graphscope/db";
-import { parseRepository } from "../../services/parser/index.js";
+import { parseRepository, type ScanProgress } from "../../services/parser/index.js";
 import { getSecret } from "../../services/secrets.js";
 import { postJobWebhook } from "../../services/notify.js";
-import { enqueueAnalyzeOp, runAnalyticsAnalyzeOpTask } from "./analytics-analyze-op.js";
+import { startRepoWatcher } from "../../services/repo-watcher.js";
 
 async function emitJobNotification(event: {
   jobId: string;
@@ -69,76 +69,95 @@ export async function runParseRepoTask(
     projectId: string;
     repositoryLinkId: string;
   },
-  db?: import("@graphscope/db").Knex,
 ): Promise<void> {
   await repos.jobs.setStatus(payload.jobId, "running");
   await repos.repositoryLinks.updateStatus(payload.repositoryLinkId, payload.workspaceId, "SYNCING");
   try {
-    const { root, githubBaseUrl } = await resolveRepoRoot(repos, payload.repositoryLinkId, payload.workspaceId);
-    await repos.operations.clearStaging(payload.projectId, payload.workspaceId);
-    const parsed = await parseRepository(root);
-    for (const op of parsed) {
-      await repos.operations.insertStaging(
-        payload.workspaceId,
-        payload.projectId,
-        payload.repositoryLinkId,
-        payload.jobId,
-        op,
-      );
-    }
-    const count = await repos.operations.promoteFromStaging(
-      payload.workspaceId,
-      payload.projectId,
-      payload.repositoryLinkId,
-      githubBaseUrl,
-    );
+    const { root } = await resolveRepoRoot(repos, payload.repositoryLinkId, payload.workspaceId);
+    const parsed = await parseRepository(root, async (progress: ScanProgress) => {
+      await repos.jobs.updatePayload(payload.jobId, {
+        scanStep: progress.step,
+        scanStats: progress.stats,
+        scanReport: progress.report ?? null,
+      });
+    });
+    await repos.explorer.persistCatalog({
+      workspaceId: payload.workspaceId,
+      projectId: payload.projectId,
+      repositoryLinkId: payload.repositoryLinkId,
+      parsed,
+    });
+    await repos.explorer.upsertInferredEnvironments(payload.workspaceId, parsed.endpoints);
     await repos.repositoryLinks.updateStatus(payload.repositoryLinkId, payload.workspaceId, "INDEXED", {
       lastIndexedSha: String(Date.now()),
       lastError: null,
     });
+    await repos.jobs.updatePayload(payload.jobId, {
+      scanStep: "Mapping source references",
+      scanStats: {
+        operations: parsed.operations.length,
+        fragments: parsed.fragments.length,
+        types: parsed.types.length,
+        endpoints: parsed.endpoints.length,
+        files: parsed.files.length,
+      },
+      scanReport: {
+        ignoredCount: parsed.ignoredCount,
+        skippedFiles: parsed.skippedFiles,
+        parseErrors: parsed.parseErrors,
+      },
+    });
     await repos.jobs.setStatus(payload.jobId, "completed");
-    console.log(`parse.repo completed: ${count} new operations`);
-
-    const operations = await repos.operations.listForProject(payload.projectId, payload.workspaceId, 500);
-    for (const op of operations) {
-      if (db) {
-        await enqueueAnalyzeOp(repos, db, payload.workspaceId, op.id);
-      } else {
-        await runAnalyticsAnalyzeOpTask(repos, { workspaceId: payload.workspaceId, operationId: op.id });
-      }
+    console.log(`parse.repo completed: ${parsed.operations.length} operations`);
+    try {
+      const { getKnex } = await import("@graphscope/db");
+      await startRepoWatcher(getKnex(), {
+        workspaceId: payload.workspaceId,
+        projectId: payload.projectId,
+        repositoryLinkId: payload.repositoryLinkId,
+        rootDir: root,
+      });
+    } catch (err) {
+      console.warn("Failed to start repo watcher", err);
     }
     await emitJobNotification({
       jobId: payload.jobId,
       jobType: "parse.repo",
       status: "completed",
-      message: `Indexed ${count} operations`,
+      message: `Indexed ${parsed.operations.length} operations`,
       workspaceId: payload.workspaceId,
       projectId: payload.projectId,
     });
     await postJobWebhook({
       jobType: "parse.repo",
       status: "completed",
-      message: `Indexed ${count} operations`,
+      message: `Indexed ${parsed.operations.length} operations`,
       workspaceId: payload.workspaceId,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    const friendly =
+      message.includes("bind message") || message.includes("32767")
+        ? "Scan found too many relationships to save. Update GraphScope and retry."
+        : message.includes("unique") || message.includes("duplicate key")
+          ? `Could not save scan results (${message}). Retrying often fixes this after an update.`
+          : message;
     await repos.repositoryLinks.updateStatus(payload.repositoryLinkId, payload.workspaceId, "ERROR", {
-      lastError: message,
+      lastError: friendly,
     });
-    await repos.jobs.setStatus(payload.jobId, "failed", { lastError: message });
+    await repos.jobs.setStatus(payload.jobId, "failed", { lastError: friendly });
     await emitJobNotification({
       jobId: payload.jobId,
       jobType: "parse.repo",
       status: "failed",
-      message,
+      message: friendly,
       workspaceId: payload.workspaceId,
       projectId: payload.projectId,
     });
     await postJobWebhook({
       jobType: "parse.repo",
       status: "failed",
-      message,
+      message: friendly,
       workspaceId: payload.workspaceId,
     });
     throw err;

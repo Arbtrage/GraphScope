@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { mergeExecuteHeaders, resolveExecuteQueryContent, substituteSecrets } from "./execute-operation.js";
+import {
+  classifyExecuteFailure,
+  mergeExecuteHeaders,
+  resolveExecuteQueryContent,
+  substituteSecrets,
+} from "./execute-operation.js";
 
 describe("substituteSecrets", () => {
   it("replaces {{name}} placeholders", () => {
@@ -46,6 +51,30 @@ describe("mergeExecuteHeaders", () => {
     });
     expect(headers.Host).toBeUndefined();
     expect(headers.Authorization).toBe("Bearer ok");
+  });
+});
+
+describe("classifyExecuteFailure", () => {
+  it("maps AbortError to timeout", () => {
+    const err = new Error("aborted");
+    err.name = "AbortError";
+    expect(classifyExecuteFailure(err)).toMatchObject({
+      status: "TIMEOUT",
+      title: "Request timed out",
+    });
+  });
+
+  it("maps ECONNREFUSED to unreachable", () => {
+    const err = Object.assign(new Error("fetch failed"), { cause: { code: "ECONNREFUSED" } });
+    expect(classifyExecuteFailure(err)).toMatchObject({
+      status: "TRANSPORT_ERROR",
+      title: "Server not reachable",
+    });
+  });
+
+  it("maps ENOTFOUND to unreachable", () => {
+    const err = Object.assign(new Error("getaddrinfo"), { cause: { code: "ENOTFOUND" } });
+    expect(classifyExecuteFailure(err).title).toBe("Server not reachable");
   });
 });
 
