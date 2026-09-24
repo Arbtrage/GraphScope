@@ -20,10 +20,15 @@ asar: true
 npmRebuild: false
 nodeGypRebuild: false
 electronVersion: 33.4.11
+# Native PG binaries + keytar must live on a real filesystem (chmod/exec).
 asarUnpack:
   - "**/*.node"
   - "**/embedded-postgres/**"
+  - "**/@embedded-postgres/**"
   - "**/keytar/**"
+  - "**/node_modules/@embedded-postgres/**/*"
+  - "**/node_modules/embedded-postgres/**/*"
+  - "**/node_modules/keytar/**/*"
 
 extraResources:
   - from: resources/web

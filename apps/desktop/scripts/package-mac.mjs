@@ -68,6 +68,22 @@ async function main() {
   if (artifacts.length === 0) {
     throw new Error("electron-builder finished but no .dmg/.zip artifacts were produced");
   }
+
+  // Sanity: PG native binary must not live only inside app.asar (chmod fails).
+  const appRoot = path.join(packRelease, `mac${process.arch === "arm64" ? "-arm64" : ""}`, "GraphScope.app");
+  const unpackedHint = path.join(
+    appRoot,
+    "Contents/Resources/app.asar.unpacked/node_modules/@embedded-postgres",
+  );
+  try {
+    await fs.access(unpackedHint);
+    console.log("OK: @embedded-postgres unpacked from asar");
+  } catch {
+    console.warn(
+      `WARN: expected unpacked natives at ${unpackedHint} — packaged app may fail chmod on postgres`,
+    );
+  }
+
   console.log(`Artifacts → ${outRelease}`);
   for (const name of artifacts) console.log(`  - ${name}`);
 }
